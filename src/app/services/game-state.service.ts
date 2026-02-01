@@ -1,15 +1,109 @@
-import { Injectable, signal, computed } from '@angular/core';
-import { GameSession, Player, Question, PlayerAnswer } from '../models';
+import { Injectable, signal, computed, effect, DestroyRef, inject } from '@angular/core';
+import { GameSession, Player, PlayerAnswer } from '../models';
 import { MockQuestionsService } from './mock-questions.service';
+
+const STORAGE_KEY_GAMES = 'sinterklaas-quiz-games';
+const STORAGE_KEY_PLAYER_ID = 'sinterklaas-quiz-player-id';
+const STORAGE_KEY_GAME_CODE = 'sinterklaas-quiz-game-code';
 
 @Injectable({
   providedIn: 'root',
 })
 export class GameStateService {
+  private destroyRef = inject(DestroyRef);
   private mockQuestionsService = new MockQuestionsService();
 
   private currentGameSession = signal<GameSession | null>(null);
   private currentPlayerId = signal<string | null>(null);
+
+  constructor() {
+    this.loadFromStorage();
+    this.setupStorageListener();
+    this.setupPersistence();
+  }
+
+  private loadFromStorage(): void {
+    const gameCode = sessionStorage.getItem(STORAGE_KEY_GAME_CODE);
+    const playerId = sessionStorage.getItem(STORAGE_KEY_PLAYER_ID);
+
+    if (gameCode) {
+      const game = this.getGameFromStorage(gameCode);
+      if (game) {
+        this.currentGameSession.set(game);
+      }
+    }
+
+    if (playerId) {
+      this.currentPlayerId.set(playerId);
+    }
+  }
+
+  private setupStorageListener(): void {
+    const handler = (event: StorageEvent) => {
+      if (event.key === STORAGE_KEY_GAMES) {
+        const currentCode = sessionStorage.getItem(STORAGE_KEY_GAME_CODE);
+        if (currentCode) {
+          const game = this.getGameFromStorage(currentCode);
+          if (game) {
+            this.currentGameSession.set(game);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('storage', handler);
+    this.destroyRef.onDestroy(() => window.removeEventListener('storage', handler));
+  }
+
+  private setupPersistence(): void {
+    effect(() => {
+      const session = this.currentGameSession();
+      if (session) {
+        this.saveGameToStorage(session);
+        sessionStorage.setItem(STORAGE_KEY_GAME_CODE, session.code);
+      }
+    });
+
+    effect(() => {
+      const playerId = this.currentPlayerId();
+      if (playerId) {
+        sessionStorage.setItem(STORAGE_KEY_PLAYER_ID, playerId);
+      } else {
+        sessionStorage.removeItem(STORAGE_KEY_PLAYER_ID);
+      }
+    });
+  }
+
+  private getGamesFromStorage(): Record<string, GameSession> {
+    const data = localStorage.getItem(STORAGE_KEY_GAMES);
+    if (!data) return {};
+
+    const parsed = JSON.parse(data);
+    // Convert createdAt strings back to Date objects
+    for (const code in parsed) {
+      if (parsed[code].createdAt) {
+        parsed[code].createdAt = new Date(parsed[code].createdAt);
+      }
+    }
+    return parsed;
+  }
+
+  private getGameFromStorage(code: string): GameSession | null {
+    const games = this.getGamesFromStorage();
+    return games[code] ?? null;
+  }
+
+  private saveGameToStorage(game: GameSession): void {
+    const games = this.getGamesFromStorage();
+    games[game.code] = game;
+    localStorage.setItem(STORAGE_KEY_GAMES, JSON.stringify(games));
+  }
+
+  private removeGameFromStorage(code: string): void {
+    const games = this.getGamesFromStorage();
+    delete games[code];
+    localStorage.setItem(STORAGE_KEY_GAMES, JSON.stringify(games));
+  }
 
   // Public computed signals
   gameSession = this.currentGameSession.asReadonly();
@@ -81,11 +175,10 @@ export class GameStateService {
   }
 
   joinGame(gameCode: string, nickname: string): boolean {
-    const session = this.currentGameSession();
+    // Look up game from localStorage (allows joining from different browser windows)
+    let session = this.getGameFromStorage(gameCode);
 
-    // For MVP, we're simulating joining the same game
-    // In a real implementation, this would fetch the game from backend
-    if (!session || session.code !== gameCode) {
+    if (!session) {
       return false;
     }
 
@@ -107,14 +200,13 @@ export class GameStateService {
       isHost: false,
     };
 
-    this.currentGameSession.update((game) => {
-      if (!game) return game;
-      return {
-        ...game,
-        players: [...game.players, newPlayer],
-      };
-    });
+    // Update the session with new player
+    session = {
+      ...session,
+      players: [...session.players, newPlayer],
+    };
 
+    this.currentGameSession.set(session);
     this.currentPlayerId.set(playerId);
     return true;
   }
@@ -198,8 +290,24 @@ export class GameStateService {
   }
 
   resetGame(): void {
+    const session = this.currentGameSession();
+    if (session) {
+      this.removeGameFromStorage(session.code);
+    }
     this.currentGameSession.set(null);
     this.currentPlayerId.set(null);
+    sessionStorage.removeItem(STORAGE_KEY_GAME_CODE);
+    sessionStorage.removeItem(STORAGE_KEY_PLAYER_ID);
+  }
+
+  refreshFromStorage(): void {
+    const gameCode = sessionStorage.getItem(STORAGE_KEY_GAME_CODE);
+    if (gameCode) {
+      const game = this.getGameFromStorage(gameCode);
+      if (game) {
+        this.currentGameSession.set(game);
+      }
+    }
   }
 
   // Helper methods

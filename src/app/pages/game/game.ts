@@ -1,4 +1,12 @@
-import { Component, ChangeDetectionStrategy, inject, OnInit, signal } from '@angular/core';
+import {
+  Component,
+  ChangeDetectionStrategy,
+  inject,
+  OnInit,
+  signal,
+  DestroyRef,
+  effect,
+} from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { GameStateService } from '../../services/game-state.service';
 
@@ -12,6 +20,7 @@ import { GameStateService } from '../../services/game-state.service';
 export class GameComponent implements OnInit {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private destroyRef = inject(DestroyRef);
   protected gameStateService = inject(GameStateService);
 
   protected readonly String = String;
@@ -19,6 +28,27 @@ export class GameComponent implements OnInit {
   gameCode = '';
   selectedAnswer = signal<number | null>(null);
   showExplanation = signal(false);
+  private lastQuestionIndex = -1;
+  private pollInterval: ReturnType<typeof setInterval> | null = null;
+
+  constructor() {
+    // Watch for game state changes (completed, question changes)
+    effect(() => {
+      const session = this.gameStateService.gameSession();
+      if (!session || !this.gameCode) return;
+
+      if (session.state === 'completed') {
+        this.router.navigate(['/results', this.gameCode]);
+      }
+
+      // Reset answer selection when question changes (for non-host players)
+      if (session.currentQuestionIndex !== this.lastQuestionIndex) {
+        this.lastQuestionIndex = session.currentQuestionIndex;
+        this.selectedAnswer.set(null);
+        this.showExplanation.set(false);
+      }
+    });
+  }
 
   ngOnInit(): void {
     this.gameCode = this.route.snapshot.paramMap.get('code') ?? '';
@@ -26,7 +56,21 @@ export class GameComponent implements OnInit {
 
     if (!session || session.code !== this.gameCode || session.state !== 'in-progress') {
       this.router.navigate(['/']);
+      return;
     }
+
+    this.lastQuestionIndex = session.currentQuestionIndex;
+
+    // Poll for updates to sync with other players
+    this.pollInterval = setInterval(() => {
+      this.gameStateService.refreshFromStorage();
+    }, 1000);
+
+    this.destroyRef.onDestroy(() => {
+      if (this.pollInterval) {
+        clearInterval(this.pollInterval);
+      }
+    });
   }
 
   selectAnswer(index: number): void {
