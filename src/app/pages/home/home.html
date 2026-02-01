@@ -1,0 +1,99 @@
+<div class="home-container">
+  <div class="header">
+    <h1>Sinterklaas Quiz</h1>
+    <p class="subtitle">Test je kennis over Sinterklaas!</p>
+  </div>
+
+  @if (!showCreateForm() && !showJoinForm()) {
+    <div class="menu">
+      <button class="primary-button" (click)="showCreate()">Maak Nieuw Spel</button>
+      <button class="secondary-button" (click)="showJoin()">Doe Mee</button>
+    </div>
+  }
+
+  @if (showCreateForm()) {
+    <div class="form-container">
+      <h2>Maak Nieuw Spel</h2>
+      <form (ngSubmit)="createGame()">
+        <div class="form-group">
+          <label for="createNickname">Je Naam:</label>
+          <input
+            id="createNickname"
+            type="text"
+            [(ngModel)]="createNickname"
+            name="createNickname"
+            placeholder="Voer je naam in"
+            required
+            minlength="3"
+            maxlength="20"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="questionCount">Aantal Vragen:</label>
+          <select id="questionCount" [(ngModel)]="createQuestionCount" name="questionCount">
+            <option [value]="10">10 vragen</option>
+            <option [value]="15">15 vragen</option>
+            <option [value]="20">20 vragen</option>
+          </select>
+        </div>
+
+        @if (errorMessage()) {
+          <div class="error-message">{{ errorMessage() }}</div>
+        }
+
+        <div class="button-group">
+          <button type="submit" class="primary-button">Maak Spel</button>
+          <button type="button" class="secondary-button" (click)="showCreateForm.set(false)">
+            Annuleer
+          </button>
+        </div>
+      </form>
+    </div>
+  }
+
+  @if (showJoinForm()) {
+    <div class="form-container">
+      <h2>Doe Mee aan een Spel</h2>
+      <form (ngSubmit)="joinGame()">
+        <div class="form-group">
+          <label for="joinCode">Spelcode:</label>
+          <input
+            id="joinCode"
+            type="text"
+            [(ngModel)]="joinCode"
+            name="joinCode"
+            placeholder="6-cijferige code"
+            required
+            maxlength="6"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="joinNickname">Je Naam:</label>
+          <input
+            id="joinNickname"
+            type="text"
+            [(ngModel)]="joinNickname"
+            name="joinNickname"
+            placeholder="Voer je naam in"
+            required
+            minlength="3"
+            maxlength="20"
+          />
+        </div>
+
+        @if (errorMessage()) {
+          <div class="error-message">{{ errorMessage() }}</div>
+        }
+
+        <div class="button-group">
+          <button type="submit" class="primary-button">Doe Mee</button>
+          <button type="button" class="secondary-button" (click)="showJoinForm.set(false)">
+            Annuleer
+          </button>
+        </div>
+      </form>
+    </div>
+  }
+</div>

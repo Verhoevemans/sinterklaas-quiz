@@ -1,0 +1,41 @@
+<div class="lobby-container">
+  <div class="lobby-header">
+    <h1>Lobby</h1>
+    <div class="game-code">
+      <span class="label">Spelcode:</span>
+      <span class="code">{{ gameCode }}</span>
+    </div>
+    <p class="instruction">Deel deze code met andere spelers om mee te doen!</p>
+  </div>
+
+  <div class="players-section">
+    <h2>Spelers ({{ gameStateService.players().length }})</h2>
+    <div class="players-list">
+      @for (player of gameStateService.players(); track player.id) {
+        <div class="player-card" [class.host]="player.isHost">
+          <span class="player-name">{{ player.nickname }}</span>
+          @if (player.isHost) {
+            <span class="host-badge">Host</span>
+          }
+        </div>
+      }
+    </div>
+  </div>
+
+  <div class="lobby-actions">
+    @if (gameStateService.isHost()) {
+      <button
+        class="primary-button"
+        (click)="startGame()"
+        [disabled]="!canStartGame()"
+      >
+        Start Spel
+      </button>
+      @if (gameStateService.players().length < 2) {
+        <p class="warning">Minimaal 2 spelers nodig om te starten</p>
+      }
+    } @else {
+      <p class="waiting">Wachten op de host om het spel te starten...</p>
+    }
+  </div>
+</div>

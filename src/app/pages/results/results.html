@@ -1,0 +1,66 @@
+<div class="results-container">
+  @if (winner(); as winnerPlayer) {
+    <div class="winner-section">
+      <h1 class="celebration">🎉 Gefeliciteerd! 🎉</h1>
+      <h2 class="winner-name">{{ winnerPlayer.nickname }}</h2>
+      <p class="winner-text">is de Sinterklaas Quiz kampioen!</p>
+      <div class="winner-score">{{ winnerPlayer.score }} punten</div>
+    </div>
+  }
+
+  <div class="leaderboard-section">
+    <h2>Eindstand</h2>
+    <div class="leaderboard">
+      @for (player of gameStateService.sortedPlayers(); track player.id) {
+        <div
+          class="leaderboard-item"
+          [class.top-three]="$index < 3"
+          [class.current-player]="player.id === gameStateService.playerId()"
+        >
+          <div class="rank">
+            @if ($index === 0) {
+              <span class="medal gold">🥇</span>
+            } @else if ($index === 1) {
+              <span class="medal silver">🥈</span>
+            } @else if ($index === 2) {
+              <span class="medal bronze">🥉</span>
+            } @else {
+              <span class="position">{{ $index + 1 }}{{ getRankSuffix($index) }}</span>
+            }
+          </div>
+          <div class="player-info">
+            <span class="player-name">{{ player.nickname }}</span>
+            @if (player.id === gameStateService.playerId()) {
+              <span class="you-badge">Jij</span>
+            }
+          </div>
+          <div class="player-score">{{ player.score }}</div>
+        </div>
+      }
+    </div>
+  </div>
+
+  @if (currentPlayerStats(); as stats) {
+    <div class="stats-section">
+      <h2>Jouw Statistieken</h2>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value">{{ stats.correctAnswers }}/{{ stats.totalQuestions }}</div>
+          <div class="stat-label">Goede Antwoorden</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">{{ stats.accuracy }}%</div>
+          <div class="stat-label">Nauwkeurigheid</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">{{ gameStateService.currentPlayer()?.score }}</div>
+          <div class="stat-label">Totaal Punten</div>
+        </div>
+      </div>
+    </div>
+  }
+
+  <div class="actions">
+    <button class="primary-button" (click)="playAgain()">Nog een Keer Spelen</button>
+  </div>
+</div>
