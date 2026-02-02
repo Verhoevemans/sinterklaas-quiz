@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { GameStateService } from '../../services/game-state.service';
+import { GameSession } from '../../models';
 
 @Component({
   selector: 'app-game',
@@ -18,23 +19,23 @@ import { GameStateService } from '../../services/game-state.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GameComponent implements OnInit {
-  private router = inject(Router);
-  private route = inject(ActivatedRoute);
-  private destroyRef = inject(DestroyRef);
-  protected gameStateService = inject(GameStateService);
+  private readonly router: Router = inject(Router);
+  private readonly route: ActivatedRoute = inject(ActivatedRoute);
+  private readonly destroyRef: DestroyRef = inject(DestroyRef);
+  protected readonly gameStateService: GameStateService = inject(GameStateService);
 
-  protected readonly String = String;
+  protected readonly String: StringConstructor = String;
 
-  gameCode = '';
-  selectedAnswer = signal<number | null>(null);
-  showExplanation = signal(false);
-  private lastQuestionIndex = -1;
+  public gameCode: string = '';
+  public readonly selectedAnswer = signal<number | null>(null);
+  public readonly showExplanation = signal<boolean>(false);
+  private lastQuestionIndex: number = -1;
   private pollInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     // Watch for game state changes (completed, question changes)
     effect(() => {
-      const session = this.gameStateService.gameSession();
+      const session: GameSession | null = this.gameStateService.gameSession();
       if (!session || !this.gameCode) return;
 
       if (session.state === 'completed') {
@@ -50,9 +51,9 @@ export class GameComponent implements OnInit {
     });
   }
 
-  ngOnInit(): void {
+  public ngOnInit(): void {
     this.gameCode = this.route.snapshot.paramMap.get('code') ?? '';
-    const session = this.gameStateService.gameSession();
+    const session: GameSession | null = this.gameStateService.gameSession();
 
     if (!session || session.code !== this.gameCode || session.state !== 'in-progress') {
       this.router.navigate(['/']);
@@ -73,7 +74,7 @@ export class GameComponent implements OnInit {
     });
   }
 
-  selectAnswer(index: number): void {
+  public selectAnswer(index: number): void {
     if (this.gameStateService.hasPlayerAnsweredCurrentQuestion()) {
       return;
     }
@@ -81,8 +82,8 @@ export class GameComponent implements OnInit {
     this.selectedAnswer.set(index);
   }
 
-  submitAnswer(): void {
-    const selected = this.selectedAnswer();
+  public submitAnswer(): void {
+    const selected: number | null = this.selectedAnswer();
     const question = this.gameStateService.currentQuestion();
 
     if (selected === null || !question) {
@@ -93,11 +94,11 @@ export class GameComponent implements OnInit {
     this.showExplanation.set(true);
   }
 
-  nextQuestion(): void {
-    const session = this.gameStateService.gameSession();
+  public nextQuestion(): void {
+    const session: GameSession | null = this.gameStateService.gameSession();
     if (!session) return;
 
-    const nextIndex = session.currentQuestionIndex + 1;
+    const nextIndex: number = session.currentQuestionIndex + 1;
 
     if (nextIndex >= session.questions.length) {
       this.gameStateService.endGame();
@@ -109,20 +110,20 @@ export class GameComponent implements OnInit {
     }
   }
 
-  hasAnswered(): boolean {
+  public hasAnswered(): boolean {
     return this.gameStateService.hasPlayerAnsweredCurrentQuestion();
   }
 
-  canSubmit(): boolean {
+  public canSubmit(): boolean {
     return this.selectedAnswer() !== null && !this.hasAnswered();
   }
 
-  isCorrectAnswer(index: number): boolean {
+  public isCorrectAnswer(index: number): boolean {
     const question = this.gameStateService.currentQuestion();
     return question?.correctAnswerIndex === index;
   }
 
-  getAnswerClass(index: number): string {
+  public getAnswerClass(index: number): string {
     if (!this.showExplanation()) {
       return this.selectedAnswer() === index ? 'selected' : '';
     }

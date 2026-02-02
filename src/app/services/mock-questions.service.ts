@@ -5,7 +5,7 @@ import { Question } from '../models';
   providedIn: 'root',
 })
 export class MockQuestionsService {
-  private questions: Question[] = [
+  private readonly questions: Question[] = [
     {
       id: '1',
       text: 'Wanneer viert men Sinterklaas in Nederland?',
@@ -228,12 +228,7 @@ export class MockQuestionsService {
     {
       id: '18',
       text: 'Welk historisch figuur is Sinterklaas gebaseerd op?',
-      options: [
-        'Sint Nicolaas',
-        'Sint Maarten',
-        'Sint Franciscus',
-        'Sint Benedictus',
-      ],
+      options: ['Sint Nicolaas', 'Sint Maarten', 'Sint Franciscus', 'Sint Benedictus'],
       correctAnswerIndex: 0,
       explanation:
         'Sinterklaas is gebaseerd op Sint Nicolaas, een bisschop uit Myra in de 4e eeuw.',
@@ -245,12 +240,7 @@ export class MockQuestionsService {
     {
       id: '19',
       text: 'Wat zingen kinderen vaak voor Sinterklaas?',
-      options: [
-        'Kerstliedjes',
-        'Sinterklaas kapoentje',
-        'Verjaardagsliedjes',
-        'Schoolliedjes',
-      ],
+      options: ['Kerstliedjes', 'Sinterklaas kapoentje', 'Verjaardagsliedjes', 'Schoolliedjes'],
       correctAnswerIndex: 1,
       explanation:
         '"Sinterklaas kapoentje" is het bekendste Sinterklaasliedje dat kinderen zingen.',
@@ -273,12 +263,12 @@ export class MockQuestionsService {
     },
   ];
 
-  getRandomQuestions(count: number): Question[] {
-    const shuffled = [...this.questions].sort(() => Math.random() - 0.5);
+  public getRandomQuestions(count: number): Question[] {
+    const shuffled: Question[] = [...this.questions].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, Math.min(count, this.questions.length));
   }
 
-  getAllQuestions(): Question[] {
+  public getAllQuestions(): Question[] {
     return [...this.questions];
   }
 }

@@ -1,56 +1,90 @@
 import { Component, signal, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { FormsModule } from '@angular/forms';
+import { ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
 import { GameStateService } from '../../services/game-state.service';
 
 @Component({
   selector: 'app-home',
-  imports: [FormsModule],
+  imports: [ReactiveFormsModule],
   templateUrl: './home.html',
   styleUrl: './home.css',
 })
 export class HomeComponent {
-  private router = inject(Router);
-  private gameStateService = inject(GameStateService);
+  private readonly router: Router = inject(Router);
+  private readonly gameStateService: GameStateService = inject(GameStateService);
 
-  showCreateForm = signal(false);
-  showJoinForm = signal(false);
+  public readonly showCreateForm = signal<boolean>(false);
+  public readonly showJoinForm = signal<boolean>(false);
+  public readonly errorMessage = signal<string>('');
 
-  createNickname = signal('');
-  createQuestionCount = signal(15);
+  public readonly createGameForm: FormGroup = new FormGroup({
+    nickname: new FormControl<string>('', [
+      Validators.required,
+      Validators.minLength(3),
+      Validators.maxLength(20),
+    ]),
+    questionCount: new FormControl<number>(15, [Validators.required]),
+  });
 
-  joinCode = signal('');
-  joinNickname = signal('');
+  public readonly joinGameForm: FormGroup = new FormGroup({
+    code: new FormControl<string>('', [
+      Validators.required,
+      Validators.minLength(6),
+      Validators.maxLength(6),
+    ]),
+    nickname: new FormControl<string>('', [
+      Validators.required,
+      Validators.minLength(3),
+      Validators.maxLength(20),
+    ]),
+  });
 
-  errorMessage = signal('');
-
-  showCreate(): void {
+  public showCreate(): void {
     this.showCreateForm.set(true);
+    this.showJoinForm.set(false);
+    this.errorMessage.set('');
+    this.createGameForm.reset({ nickname: '', questionCount: 15 });
+  }
+
+  public showJoin(): void {
+    this.showCreateForm.set(false);
+    this.showJoinForm.set(true);
+    this.errorMessage.set('');
+    this.joinGameForm.reset({ code: '', nickname: '' });
+  }
+
+  public hideForm(): void {
+    this.showCreateForm.set(false);
     this.showJoinForm.set(false);
     this.errorMessage.set('');
   }
 
-  showJoin(): void {
-    this.showCreateForm.set(false);
-    this.showJoinForm.set(true);
-    this.errorMessage.set('');
-  }
+  public createGame(): void {
+    if (this.createGameForm.invalid) {
+      this.errorMessage.set('Nickname moet tussen 3 en 20 karakters zijn');
+      return;
+    }
 
-  createGame(): void {
-    const nickname = this.createNickname().trim();
+    const nickname: string = this.createGameForm.get('nickname')?.value?.trim() ?? '';
+    const questionCount: number = this.createGameForm.get('questionCount')?.value ?? 15;
 
     if (nickname.length < 3 || nickname.length > 20) {
       this.errorMessage.set('Nickname moet tussen 3 en 20 karakters zijn');
       return;
     }
 
-    const gameCode = this.gameStateService.createGame(nickname, this.createQuestionCount());
+    const gameCode: string = this.gameStateService.createGame(nickname, questionCount);
     this.router.navigate(['/lobby', gameCode]);
   }
 
-  joinGame(): void {
-    const code = this.joinCode().trim();
-    const nickname = this.joinNickname().trim();
+  public joinGame(): void {
+    if (this.joinGameForm.invalid) {
+      this.errorMessage.set('Vul alle velden correct in');
+      return;
+    }
+
+    const code: string = this.joinGameForm.get('code')?.value?.trim() ?? '';
+    const nickname: string = this.joinGameForm.get('nickname')?.value?.trim() ?? '';
 
     if (code.length !== 6) {
       this.errorMessage.set('Spelcode moet 6 cijfers zijn');
@@ -62,7 +96,7 @@ export class HomeComponent {
       return;
     }
 
-    const success = this.gameStateService.joinGame(code, nickname);
+    const success: boolean = this.gameStateService.joinGame(code, nickname);
 
     if (!success) {
       this.errorMessage.set('Spel niet gevonden of nickname al in gebruik');

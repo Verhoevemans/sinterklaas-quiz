@@ -10,12 +10,12 @@ import { GameStateService } from '../../services/game-state.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LobbyComponent implements OnInit {
-  private router = inject(Router);
-  private route = inject(ActivatedRoute);
-  private destroyRef = inject(DestroyRef);
-  protected gameStateService = inject(GameStateService);
+  private readonly router: Router = inject(Router);
+  private readonly route: ActivatedRoute = inject(ActivatedRoute);
+  private readonly destroyRef: DestroyRef = inject(DestroyRef);
+  protected readonly gameStateService: GameStateService = inject(GameStateService);
 
-  gameCode = '';
+  public gameCode: string = '';
   private pollInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
@@ -28,7 +28,7 @@ export class LobbyComponent implements OnInit {
     });
   }
 
-  ngOnInit(): void {
+  public ngOnInit(): void {
     this.gameCode = this.route.snapshot.paramMap.get('code') ?? '';
     const session = this.gameStateService.gameSession();
 
@@ -49,8 +49,8 @@ export class LobbyComponent implements OnInit {
     });
   }
 
-  startGame(): void {
-    const isHost = this.gameStateService.isHost();
+  public startGame(): void {
+    const isHost: boolean = this.gameStateService.isHost();
     const players = this.gameStateService.players();
 
     if (!isHost || players.length < 2) {
@@ -61,7 +61,7 @@ export class LobbyComponent implements OnInit {
     this.router.navigate(['/game', this.gameCode]);
   }
 
-  canStartGame(): boolean {
+  public canStartGame(): boolean {
     return this.gameStateService.isHost() && this.gameStateService.players().length >= 2;
   }
 }

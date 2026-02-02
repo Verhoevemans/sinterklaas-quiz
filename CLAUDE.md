@@ -55,7 +55,8 @@ Code formatting rules in package.json:
 
 ## TypeScript Best Practices
 - Use strict type checking
-- Prefer type inference when the type is obvious
+- Always use explicit type annotations with `:` and `<>` notations (e.g., `signal<string>('')`, `const foo: string = 'bar'`)
+- Always use explicit access modifiers (`public`, `private`, `protected`) on class members
 - Avoid the `any` type; use `unknown` when type is uncertain
 
 ## Angular Best Practices
@@ -70,9 +71,13 @@ Code formatting rules in package.json:
 - Use `input()` and `output()` functions instead of decorators
 - Use `computed()` for derived state
 - Prefer inline templates for small components
-- Prefer Reactive forms instead of Template-driven ones
 - Do NOT use `ngClass`, use `class` bindings instead
 - Do NOT use `ngStyle`, use `style` bindings instead
+
+## Forms
+- Always use Reactive Forms (`FormGroup`, `FormControl`) instead of template-driven forms with `ngModel`
+- For simple button interactions without forms, `ngModel` is acceptable
+- Import `ReactiveFormsModule` when using reactive forms
 
 ## State Management
 - Use signals for local component state
