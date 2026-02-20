@@ -1,8 +1,8 @@
 <div class="game-container">
-  @if (gameStateService.currentQuestion(); as question) {
+  @if (gameStateService.question(); as question) {
     <div class="game-header">
       <div class="progress">
-        Vraag {{ (gameStateService.gameSession()?.currentQuestionIndex ?? 0) + 1 }} van {{ gameStateService.gameSession()?.questionCount }}
+        Vraag {{ gameStateService.questionIndex() + 1 }} van {{ gameStateService.questionCount() }}
       </div>
       <div class="score">
         Score: {{ gameStateService.currentPlayer()?.score ?? 0 }}
@@ -41,12 +41,12 @@
       @if (showExplanation()) {
         <div class="explanation-card">
           <h3>Uitleg</h3>
-          <p>{{ question.explanation }}</p>
+          <p>{{ getExplanation() }}</p>
 
           <div class="action-area">
             @if (gameStateService.isHost()) {
               <button class="primary-button" (click)="nextQuestion()">
-                @if ((gameStateService.gameSession()?.currentQuestionIndex ?? 0) + 1 >= (gameStateService.gameSession()?.questionCount ?? 0)) {
+                @if (gameStateService.questionIndex() + 1 >= gameStateService.questionCount()) {
                   Naar Resultaten
                 } @else {
                   Volgende Vraag

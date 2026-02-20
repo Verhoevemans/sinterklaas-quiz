@@ -4,18 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Angular 20.3 application for a Sinterklaas Quiz. Uses modern Angular features including:
-- **Zoneless change detection** (`provideZonelessChangeDetection()`)
-- **Signals** for reactive state management
-- **Standalone components** (no NgModules)
+Full-stack Sinterklaas Quiz application:
+- **Frontend**: Angular 20.3 with zoneless change detection, signals, and standalone components
+- **Backend**: Node.js + Express.js + Socket.io + MongoDB (in `/server` folder)
 
 ## Development Commands
 
+### Frontend (Angular)
 ```bash
 # Start development server (http://localhost:4200)
 npm start
-# or
-ng serve
 
 # Build for production
 npm run build
@@ -28,6 +26,18 @@ ng generate component component-name
 
 # Format code (Prettier configured)
 npx prettier --write .
+```
+
+### Backend (Node.js)
+```bash
+# Start development server (http://localhost:3000)
+cd server && npm run dev
+
+# Seed database with initial questions
+cd server && npm run seed
+
+# Build for production
+cd server && npm run build
 ```
 
 ## Architecture
@@ -55,7 +65,7 @@ Code formatting rules in package.json:
 
 ## TypeScript Best Practices
 - Use strict type checking
-- Always use explicit type annotations with `:` and `<>` notations (e.g., `signal<string>('')`, `const foo: string = 'bar'`)
+- Always use explicit type annotations with `:` and `<>` notations (e.g., `signal<string>('')`, `public foo: string = 'bar'`) on class members
 - Always use explicit access modifiers (`public`, `private`, `protected`) on class members
 - Avoid the `any` type; use `unknown` when type is uncertain
 

@@ -16,6 +16,7 @@ export class HomeComponent {
   public readonly showCreateForm = signal<boolean>(false);
   public readonly showJoinForm = signal<boolean>(false);
   public readonly errorMessage = signal<string>('');
+  public readonly isLoading = signal<boolean>(false);
 
   public readonly createGameForm: FormGroup = new FormGroup({
     nickname: new FormControl<string>('', [
@@ -59,7 +60,7 @@ export class HomeComponent {
     this.errorMessage.set('');
   }
 
-  public createGame(): void {
+  public async createGame(): Promise<void> {
     if (this.createGameForm.invalid) {
       this.errorMessage.set('Nickname moet tussen 3 en 20 karakters zijn');
       return;
@@ -68,16 +69,21 @@ export class HomeComponent {
     const nickname: string = this.createGameForm.get('nickname')?.value?.trim() ?? '';
     const questionCount: number = this.createGameForm.get('questionCount')?.value ?? 15;
 
-    if (nickname.length < 3 || nickname.length > 20) {
-      this.errorMessage.set('Nickname moet tussen 3 en 20 karakters zijn');
-      return;
-    }
+    this.isLoading.set(true);
+    this.errorMessage.set('');
 
-    const gameCode: string = this.gameStateService.createGame(nickname, questionCount);
-    this.router.navigate(['/lobby', gameCode]);
+    try {
+      const gameCode: string = await this.gameStateService.createGame(nickname, questionCount);
+      this.router.navigate(['/lobby', gameCode]);
+    } catch (error) {
+      this.errorMessage.set('Kon spel niet aanmaken. Probeer het opnieuw.');
+      console.error('Failed to create game:', error);
+    } finally {
+      this.isLoading.set(false);
+    }
   }
 
-  public joinGame(): void {
+  public async joinGame(): Promise<void> {
     if (this.joinGameForm.invalid) {
       this.errorMessage.set('Vul alle velden correct in');
       return;
@@ -96,13 +102,23 @@ export class HomeComponent {
       return;
     }
 
-    const success: boolean = this.gameStateService.joinGame(code, nickname);
+    this.isLoading.set(true);
+    this.errorMessage.set('');
 
-    if (!success) {
-      this.errorMessage.set('Spel niet gevonden of nickname al in gebruik');
-      return;
+    try {
+      const success: boolean = await this.gameStateService.joinGame(code, nickname);
+
+      if (!success) {
+        this.errorMessage.set('Spel niet gevonden of nickname al in gebruik');
+        return;
+      }
+
+      this.router.navigate(['/lobby', code]);
+    } catch (error) {
+      this.errorMessage.set('Kon niet deelnemen aan spel. Probeer het opnieuw.');
+      console.error('Failed to join game:', error);
+    } finally {
+      this.isLoading.set(false);
     }
-
-    this.router.navigate(['/lobby', code]);
   }
 }

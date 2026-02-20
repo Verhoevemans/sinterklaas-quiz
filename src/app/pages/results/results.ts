@@ -1,7 +1,7 @@
 import { Component, ChangeDetectionStrategy, inject, OnInit, computed, Signal } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { GameStateService } from '../../services/game-state.service';
-import { Player, GameSession } from '../../models';
+import { Player } from '../../models';
 
 interface PlayerStats {
   totalQuestions: number;
@@ -45,9 +45,10 @@ export class ResultsComponent implements OnInit {
 
   public ngOnInit(): void {
     this.gameCode = this.route.snapshot.paramMap.get('code') ?? '';
-    const session: GameSession | null = this.gameStateService.gameSession();
+    const currentGameCode: string | null = this.gameStateService.gameCode();
+    const state = this.gameStateService.state();
 
-    if (!session || session.code !== this.gameCode || session.state !== 'completed') {
+    if (!currentGameCode || currentGameCode !== this.gameCode || state !== 'completed') {
       this.router.navigate(['/']);
     }
   }

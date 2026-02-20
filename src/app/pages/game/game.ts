@@ -1,15 +1,6 @@
-import {
-  Component,
-  ChangeDetectionStrategy,
-  inject,
-  OnInit,
-  signal,
-  DestroyRef,
-  effect,
-} from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, OnInit, signal, effect } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { GameStateService } from '../../services/game-state.service';
-import { GameSession } from '../../models';
 
 @Component({
   selector: 'app-game',
@@ -21,61 +12,48 @@ import { GameSession } from '../../models';
 export class GameComponent implements OnInit {
   private readonly router: Router = inject(Router);
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
-  private readonly destroyRef: DestroyRef = inject(DestroyRef);
   protected readonly gameStateService: GameStateService = inject(GameStateService);
 
   protected readonly String: StringConstructor = String;
 
   public gameCode: string = '';
   public readonly selectedAnswer = signal<number | null>(null);
-  public readonly showExplanation = signal<boolean>(false);
   private lastQuestionIndex: number = -1;
-  private pollInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
-    // Watch for game state changes (completed, question changes)
+    // Watch for game state changes
     effect(() => {
-      const session: GameSession | null = this.gameStateService.gameSession();
-      if (!session || !this.gameCode) return;
-
-      if (session.state === 'completed') {
+      const state = this.gameStateService.state();
+      if (state === 'completed' && this.gameCode) {
         this.router.navigate(['/results', this.gameCode]);
       }
+    });
 
-      // Reset answer selection when question changes (for non-host players)
-      if (session.currentQuestionIndex !== this.lastQuestionIndex) {
-        this.lastQuestionIndex = session.currentQuestionIndex;
+    // Reset answer selection when question changes
+    effect(() => {
+      const questionIndex: number = this.gameStateService.questionIndex();
+      if (questionIndex !== this.lastQuestionIndex) {
+        this.lastQuestionIndex = questionIndex;
         this.selectedAnswer.set(null);
-        this.showExplanation.set(false);
       }
     });
   }
 
   public ngOnInit(): void {
     this.gameCode = this.route.snapshot.paramMap.get('code') ?? '';
-    const session: GameSession | null = this.gameStateService.gameSession();
+    const currentGameCode: string | null = this.gameStateService.gameCode();
+    const state = this.gameStateService.state();
 
-    if (!session || session.code !== this.gameCode || session.state !== 'in-progress') {
+    if (!currentGameCode || currentGameCode !== this.gameCode || state !== 'in-progress') {
       this.router.navigate(['/']);
       return;
     }
 
-    this.lastQuestionIndex = session.currentQuestionIndex;
-
-    // Poll for updates to sync with other players
-    this.pollInterval = setInterval(() => {
-      this.gameStateService.refreshFromStorage();
-    }, 1000);
-
-    this.destroyRef.onDestroy(() => {
-      if (this.pollInterval) {
-        clearInterval(this.pollInterval);
-      }
-    });
+    this.lastQuestionIndex = this.gameStateService.questionIndex();
   }
 
   public selectAnswer(index: number): void {
-    if (this.gameStateService.hasPlayerAnsweredCurrentQuestion()) {
+    if (this.hasAnswered()) {
       return;
     }
 
@@ -84,30 +62,25 @@ export class GameComponent implements OnInit {
 
   public submitAnswer(): void {
     const selected: number | null = this.selectedAnswer();
-    const question = this.gameStateService.currentQuestion();
+    const question = this.gameStateService.question();
 
     if (selected === null || !question) {
       return;
     }
 
     this.gameStateService.submitAnswer(question.id, selected);
-    this.showExplanation.set(true);
   }
 
   public nextQuestion(): void {
-    const session: GameSession | null = this.gameStateService.gameSession();
-    if (!session) return;
+    const questionIndex: number = this.gameStateService.questionIndex();
+    const questionCount: number = this.gameStateService.questionCount();
 
-    const nextIndex: number = session.currentQuestionIndex + 1;
-
-    if (nextIndex >= session.questions.length) {
+    if (questionIndex + 1 >= questionCount) {
       this.gameStateService.endGame();
-      this.router.navigate(['/results', this.gameCode]);
     } else {
       this.gameStateService.nextQuestion();
-      this.selectedAnswer.set(null);
-      this.showExplanation.set(false);
     }
+    // Navigation/state updates happen via socket events
   }
 
   public hasAnswered(): boolean {
@@ -119,12 +92,15 @@ export class GameComponent implements OnInit {
   }
 
   public isCorrectAnswer(index: number): boolean {
-    const question = this.gameStateService.currentQuestion();
-    return question?.correctAnswerIndex === index;
+    const result = this.gameStateService.answerResult();
+    if (!result) return false;
+    return result.correctAnswerIndex === index;
   }
 
   public getAnswerClass(index: number): string {
-    if (!this.showExplanation()) {
+    const result = this.gameStateService.answerResult();
+
+    if (!result) {
       return this.selectedAnswer() === index ? 'selected' : '';
     }
 
@@ -137,5 +113,14 @@ export class GameComponent implements OnInit {
     }
 
     return '';
+  }
+
+  public getExplanation(): string {
+    const result = this.gameStateService.answerResult();
+    return result?.explanation ?? '';
+  }
+
+  public showExplanation(): boolean {
+    return this.gameStateService.answerResult() !== null;
   }
 }

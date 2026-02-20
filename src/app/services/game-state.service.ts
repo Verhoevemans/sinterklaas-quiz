@@ -1,8 +1,15 @@
-import { Injectable, signal, computed, effect, DestroyRef, inject, Signal } from '@angular/core';
+import { Injectable, signal, computed, effect, inject, Signal } from '@angular/core';
 import { GameSession, Player, PlayerAnswer, Question } from '../models';
-import { MockQuestionsService } from './mock-questions.service';
+import { ApiService, CreateGameResponse, JoinGameResponse } from './api.service';
+import {
+  SocketService,
+  GameStateData,
+  GameStartedData,
+  QuestionChangedData,
+  AnswerResultData,
+  GameEndedData,
+} from './socket.service';
 
-const STORAGE_KEY_GAMES: string = 'sinterklaas-quiz-games';
 const STORAGE_KEY_PLAYER_ID: string = 'sinterklaas-quiz-player-id';
 const STORAGE_KEY_GAME_CODE: string = 'sinterklaas-quiz-game-code';
 
@@ -10,21 +17,38 @@ const STORAGE_KEY_GAME_CODE: string = 'sinterklaas-quiz-game-code';
   providedIn: 'root',
 })
 export class GameStateService {
-  private readonly destroyRef: DestroyRef = inject(DestroyRef);
-  private readonly mockQuestionsService: MockQuestionsService = new MockQuestionsService();
+  private readonly apiService: ApiService = inject(ApiService);
+  private readonly socketService: SocketService = inject(SocketService);
 
-  private readonly currentGameSession = signal<GameSession | null>(null);
+  private readonly currentGameCode = signal<string | null>(null);
   private readonly currentPlayerId = signal<string | null>(null);
+  private readonly currentPlayers = signal<Player[]>([]);
+  private readonly currentQuestion = signal<Question | null>(null);
+  private readonly currentQuestionIndex = signal<number>(0);
+  private readonly totalQuestions = signal<number>(0);
+  private readonly currentState = signal<'lobby' | 'in-progress' | 'completed'>('lobby');
+  private readonly lastAnswerResult = signal<AnswerResultData | null>(null);
+  private readonly finalResults = signal<GameEndedData | null>(null);
 
   // Public computed signals
-  public readonly gameSession: Signal<GameSession | null> = this.currentGameSession.asReadonly();
+  public readonly gameCode: Signal<string | null> = this.currentGameCode.asReadonly();
   public readonly playerId: Signal<string | null> = this.currentPlayerId.asReadonly();
+  public readonly players: Signal<Player[]> = this.currentPlayers.asReadonly();
+  public readonly question: Signal<Question | null> = this.currentQuestion.asReadonly();
+  public readonly questionIndex: Signal<number> = this.currentQuestionIndex.asReadonly();
+  public readonly questionCount: Signal<number> = this.totalQuestions.asReadonly();
+  public readonly state: Signal<'lobby' | 'in-progress' | 'completed'> =
+    this.currentState.asReadonly();
+  public readonly answerResult: Signal<AnswerResultData | null> = this.lastAnswerResult.asReadonly();
+  public readonly results: Signal<GameEndedData | null> = this.finalResults.asReadonly();
+  public readonly socketConnected: Signal<boolean> = this.socketService.connected;
+  public readonly socketError: Signal<string | null> = this.socketService.error;
 
   public readonly currentPlayer: Signal<Player | null> = computed(() => {
-    const session: GameSession | null = this.currentGameSession();
+    const players: Player[] = this.currentPlayers();
     const id: string | null = this.currentPlayerId();
-    if (!session || !id) return null;
-    return session.players.find((p: Player) => p.id === id) ?? null;
+    if (!id) return null;
+    return players.find((p: Player) => p.id === id) ?? null;
   });
 
   public readonly isHost: Signal<boolean> = computed(() => {
@@ -32,32 +56,17 @@ export class GameStateService {
     return player?.isHost ?? false;
   });
 
-  public readonly currentQuestion: Signal<Question | null> = computed(() => {
-    const session: GameSession | null = this.currentGameSession();
-    if (!session || session.currentQuestionIndex >= session.questions.length) return null;
-    return session.questions[session.currentQuestionIndex];
-  });
-
-  public readonly players: Signal<Player[]> = computed(() => {
-    const session: GameSession | null = this.currentGameSession();
-    return session?.players ?? [];
-  });
-
   public readonly sortedPlayers: Signal<Player[]> = computed(() => {
-    const players: Player[] = this.players();
+    const players: Player[] = this.currentPlayers();
     return [...players].sort((a: Player, b: Player) => {
       if (b.score !== a.score) return b.score - a.score;
-      // Tiebreaker: average response time (faster is better)
-      const aAvgTime: number = this.getAverageResponseTime(a);
-      const bAvgTime: number = this.getAverageResponseTime(b);
-      return aAvgTime - bAvgTime;
+      return 0;
     });
   });
 
   constructor() {
     this.loadFromStorage();
-    this.setupStorageListener();
-    this.setupPersistence();
+    this.setupSocketListeners();
   }
 
   private loadFromStorage(): void {
@@ -65,10 +74,7 @@ export class GameStateService {
     const playerId: string | null = sessionStorage.getItem(STORAGE_KEY_PLAYER_ID);
 
     if (gameCode) {
-      const game: GameSession | null = this.getGameFromStorage(gameCode);
-      if (game) {
-        this.currentGameSession.set(game);
-      }
+      this.currentGameCode.set(gameCode);
     }
 
     if (playerId) {
@@ -76,280 +82,296 @@ export class GameStateService {
     }
   }
 
-  private setupStorageListener(): void {
-    const handler = (event: StorageEvent): void => {
-      if (event.key === STORAGE_KEY_GAMES) {
-        const currentCode: string | null = sessionStorage.getItem(STORAGE_KEY_GAME_CODE);
-        if (currentCode) {
-          const game: GameSession | null = this.getGameFromStorage(currentCode);
-          if (game) {
-            this.currentGameSession.set(game);
-          }
+  private saveToStorage(): void {
+    const gameCode: string | null = this.currentGameCode();
+    const playerId: string | null = this.currentPlayerId();
+
+    if (gameCode) {
+      sessionStorage.setItem(STORAGE_KEY_GAME_CODE, gameCode);
+    } else {
+      sessionStorage.removeItem(STORAGE_KEY_GAME_CODE);
+    }
+
+    if (playerId) {
+      sessionStorage.setItem(STORAGE_KEY_PLAYER_ID, playerId);
+    } else {
+      sessionStorage.removeItem(STORAGE_KEY_PLAYER_ID);
+    }
+  }
+
+  private setupSocketListeners(): void {
+    // Game state updates (when joining)
+    effect(() => {
+      const data: GameStateData | null = this.socketService.gameState();
+      if (data) {
+        this.currentPlayers.set(
+          data.game.players.map((p) => ({
+            id: p.id,
+            nickname: p.nickname,
+            score: p.score,
+            answers: [],
+            isHost: p.isHost,
+          }))
+        );
+        this.currentState.set(data.game.state);
+        this.currentQuestionIndex.set(data.game.currentQuestionIndex);
+        this.totalQuestions.set(data.game.questionCount);
+      }
+    });
+
+    // Player joined
+    effect(() => {
+      const data = this.socketService.playerJoined();
+      if (data) {
+        this.currentPlayers.update((players: Player[]) => {
+          const exists: boolean = players.some((p: Player) => p.id === data.player.id);
+          if (exists) return players;
+          return [
+            ...players,
+            {
+              id: data.player.id,
+              nickname: data.player.nickname,
+              score: 0,
+              answers: [],
+              isHost: data.player.isHost,
+            },
+          ];
+        });
+      }
+    });
+
+    // Player left
+    effect(() => {
+      const data = this.socketService.playerLeft();
+      if (data) {
+        this.currentPlayers.update((players: Player[]) =>
+          players.filter((p: Player) => p.id !== data.playerId)
+        );
+      }
+    });
+
+    // Game started
+    effect(() => {
+      const data: GameStartedData | null = this.socketService.gameStarted();
+      if (data) {
+        this.currentState.set('in-progress');
+        this.currentQuestionIndex.set(data.questionIndex);
+        this.totalQuestions.set(data.totalQuestions);
+        this.currentQuestion.set({
+          id: data.question.id,
+          text: data.question.text,
+          options: data.question.options,
+          questionType: data.question.questionType as 'multiple-choice',
+          imageUrl: data.question.imageUrl,
+          correctAnswerIndex: -1, // Not revealed yet
+          explanation: '',
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        this.lastAnswerResult.set(null);
+      }
+    });
+
+    // Answer result
+    effect(() => {
+      const data: AnswerResultData | null = this.socketService.answerResult();
+      if (data) {
+        this.lastAnswerResult.set(data);
+        // Update current player's score
+        const playerId: string | null = this.currentPlayerId();
+        if (playerId) {
+          this.currentPlayers.update((players: Player[]) =>
+            players.map((p: Player) =>
+              p.id === playerId ? { ...p, score: data.newScore } : p
+            )
+          );
         }
       }
-    };
+    });
 
-    window.addEventListener('storage', handler);
-    this.destroyRef.onDestroy(() => window.removeEventListener('storage', handler));
-  }
-
-  private setupPersistence(): void {
+    // Question changed
     effect(() => {
-      const session: GameSession | null = this.currentGameSession();
-      if (session) {
-        this.saveGameToStorage(session);
-        sessionStorage.setItem(STORAGE_KEY_GAME_CODE, session.code);
+      const data: QuestionChangedData | null = this.socketService.questionChanged();
+      if (data) {
+        this.currentQuestionIndex.set(data.questionIndex);
+        this.currentQuestion.set({
+          id: data.question.id,
+          text: data.question.text,
+          options: data.question.options,
+          questionType: data.question.questionType as 'multiple-choice',
+          imageUrl: data.question.imageUrl,
+          correctAnswerIndex: -1,
+          explanation: '',
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        this.lastAnswerResult.set(null);
+        // Update scores
+        this.currentPlayers.update((players: Player[]) =>
+          players.map((p: Player) => {
+            const scoreData = data.scores.find((s) => s.id === p.id);
+            return scoreData ? { ...p, score: scoreData.score } : p;
+          })
+        );
       }
     });
 
+    // Game ended
     effect(() => {
-      const playerId: string | null = this.currentPlayerId();
-      if (playerId) {
-        sessionStorage.setItem(STORAGE_KEY_PLAYER_ID, playerId);
-      } else {
-        sessionStorage.removeItem(STORAGE_KEY_PLAYER_ID);
+      const data: GameEndedData | null = this.socketService.gameEnded();
+      if (data) {
+        this.currentState.set('completed');
+        this.finalResults.set(data);
+        this.currentPlayers.set(
+          data.players.map((p) => ({
+            id: p.id,
+            nickname: p.nickname,
+            score: p.score,
+            answers: p.answers,
+            isHost: p.isHost,
+          }))
+        );
       }
     });
   }
 
-  private getGamesFromStorage(): Record<string, GameSession> {
-    const data: string | null = localStorage.getItem(STORAGE_KEY_GAMES);
-    if (!data) return {};
+  public async createGame(hostNickname: string, questionCount: number): Promise<string> {
+    const response: CreateGameResponse = await this.apiService.createGame(
+      hostNickname,
+      questionCount
+    );
 
-    const parsed: Record<string, GameSession> = JSON.parse(data);
-    // Convert createdAt strings back to Date objects
-    for (const code in parsed) {
-      if (parsed[code].createdAt) {
-        parsed[code].createdAt = new Date(parsed[code].createdAt);
-      }
-    }
-    return parsed;
+    this.currentGameCode.set(response.code);
+    this.currentPlayerId.set(response.playerId);
+    this.currentState.set('lobby');
+    this.totalQuestions.set(questionCount);
+    this.currentPlayers.set([
+      {
+        id: response.playerId,
+        nickname: hostNickname,
+        score: 0,
+        answers: [],
+        isHost: true,
+      },
+    ]);
+
+    this.saveToStorage();
+
+    // Connect to socket and join the game room
+    this.socketService.connect();
+    this.socketService.joinGame(response.code, response.playerId);
+
+    return response.code;
   }
 
-  private getGameFromStorage(code: string): GameSession | null {
-    const games: Record<string, GameSession> = this.getGamesFromStorage();
-    return games[code] ?? null;
-  }
+  public async joinGame(gameCode: string, nickname: string): Promise<boolean> {
+    try {
+      const response: JoinGameResponse = await this.apiService.joinGame(gameCode, nickname);
 
-  private saveGameToStorage(game: GameSession): void {
-    const games: Record<string, GameSession> = this.getGamesFromStorage();
-    games[game.code] = game;
-    localStorage.setItem(STORAGE_KEY_GAMES, JSON.stringify(games));
-  }
+      this.currentGameCode.set(gameCode);
+      this.currentPlayerId.set(response.playerId);
+      this.currentState.set('lobby');
 
-  private removeGameFromStorage(code: string): void {
-    const games: Record<string, GameSession> = this.getGamesFromStorage();
-    delete games[code];
-    localStorage.setItem(STORAGE_KEY_GAMES, JSON.stringify(games));
-  }
+      this.saveToStorage();
 
-  public createGame(hostNickname: string, questionCount: number): string {
-    const gameCode: string = this.generateGameCode();
-    const hostId: string = this.generatePlayerId();
-    const questions: Question[] = this.mockQuestionsService.getRandomQuestions(questionCount);
+      // Connect to socket and join the game room
+      this.socketService.connect();
+      this.socketService.joinGame(gameCode, response.playerId);
 
-    const host: Player = {
-      id: hostId,
-      nickname: hostNickname,
-      score: 0,
-      answers: [],
-      isHost: true,
-    };
-
-    const newGame: GameSession = {
-      id: this.generateGameId(),
-      code: gameCode,
-      hostId: hostId,
-      players: [host],
-      questionCount: questionCount,
-      currentQuestionIndex: 0,
-      questions: questions,
-      state: 'lobby',
-      createdAt: new Date(),
-    };
-
-    this.currentGameSession.set(newGame);
-    this.currentPlayerId.set(hostId);
-
-    return gameCode;
-  }
-
-  public joinGame(gameCode: string, nickname: string): boolean {
-    // Look up game from localStorage (allows joining from different browser windows)
-    let session: GameSession | null = this.getGameFromStorage(gameCode);
-
-    if (!session) {
+      return true;
+    } catch (error) {
+      console.error('Failed to join game:', error);
       return false;
     }
-
-    if (session.state !== 'lobby') {
-      return false;
-    }
-
-    // Check if nickname is already taken
-    if (session.players.some((p: Player) => p.nickname === nickname)) {
-      return false;
-    }
-
-    const playerId: string = this.generatePlayerId();
-    const newPlayer: Player = {
-      id: playerId,
-      nickname: nickname,
-      score: 0,
-      answers: [],
-      isHost: false,
-    };
-
-    // Update the session with new player
-    session = {
-      ...session,
-      players: [...session.players, newPlayer],
-    };
-
-    this.currentGameSession.set(session);
-    this.currentPlayerId.set(playerId);
-    return true;
   }
 
   public startGame(): void {
-    this.currentGameSession.update((game: GameSession | null) => {
-      if (!game || game.state !== 'lobby') return game;
-      return {
-        ...game,
-        state: 'in-progress',
-        currentQuestionIndex: 0,
-      };
-    });
+    const gameCode: string | null = this.currentGameCode();
+    const playerId: string | null = this.currentPlayerId();
+
+    if (gameCode && playerId) {
+      this.socketService.startGame(gameCode, playerId);
+    }
   }
 
   public submitAnswer(questionId: string, selectedIndex: number): void {
-    const session: GameSession | null = this.currentGameSession();
+    const gameCode: string | null = this.currentGameCode();
     const playerId: string | null = this.currentPlayerId();
-    const question: Question | null = this.currentQuestion();
 
-    if (!session || !playerId || !question || question.id !== questionId) return;
-
-    const isCorrect: boolean = selectedIndex === question.correctAnswerIndex;
-    const timestamp: number = Date.now();
-
-    const answer: PlayerAnswer = {
-      questionId,
-      selectedIndex,
-      timestamp,
-      isCorrect,
-    };
-
-    this.currentGameSession.update((game: GameSession | null) => {
-      if (!game) return game;
-
-      const updatedPlayers: Player[] = game.players.map((player: Player) => {
-        if (player.id !== playerId) return player;
-
-        return {
-          ...player,
-          answers: [...player.answers, answer],
-          score: player.score + (isCorrect ? 100 : 0),
-        };
-      });
-
-      return {
-        ...game,
-        players: updatedPlayers,
-      };
-    });
+    if (gameCode && playerId) {
+      this.socketService.submitAnswer(gameCode, playerId, questionId, selectedIndex);
+    }
   }
 
   public nextQuestion(): void {
-    this.currentGameSession.update((game: GameSession | null) => {
-      if (!game) return game;
+    const gameCode: string | null = this.currentGameCode();
+    const playerId: string | null = this.currentPlayerId();
 
-      const nextIndex: number = game.currentQuestionIndex + 1;
-
-      if (nextIndex >= game.questions.length) {
-        return {
-          ...game,
-          state: 'completed',
-        };
-      }
-
-      return {
-        ...game,
-        currentQuestionIndex: nextIndex,
-      };
-    });
+    if (gameCode && playerId) {
+      this.socketService.nextQuestion(gameCode, playerId);
+    }
   }
 
   public endGame(): void {
-    this.currentGameSession.update((game: GameSession | null) => {
-      if (!game) return game;
-      return {
-        ...game,
-        state: 'completed',
-      };
-    });
+    const gameCode: string | null = this.currentGameCode();
+    const playerId: string | null = this.currentPlayerId();
+
+    if (gameCode && playerId) {
+      this.socketService.endGame(gameCode, playerId);
+    }
   }
 
   public resetGame(): void {
-    const session: GameSession | null = this.currentGameSession();
-    if (session) {
-      this.removeGameFromStorage(session.code);
-    }
-    this.currentGameSession.set(null);
+    this.currentGameCode.set(null);
     this.currentPlayerId.set(null);
+    this.currentPlayers.set([]);
+    this.currentQuestion.set(null);
+    this.currentQuestionIndex.set(0);
+    this.totalQuestions.set(0);
+    this.currentState.set('lobby');
+    this.lastAnswerResult.set(null);
+    this.finalResults.set(null);
+
     sessionStorage.removeItem(STORAGE_KEY_GAME_CODE);
     sessionStorage.removeItem(STORAGE_KEY_PLAYER_ID);
-  }
 
-  public refreshFromStorage(): void {
-    const gameCode: string | null = sessionStorage.getItem(STORAGE_KEY_GAME_CODE);
-    if (gameCode) {
-      const game: GameSession | null = this.getGameFromStorage(gameCode);
-      if (game) {
-        this.currentGameSession.set(game);
-      }
-    }
-  }
-
-  private generateGameCode(): string {
-    return Math.floor(100000 + Math.random() * 900000).toString();
-  }
-
-  private generatePlayerId(): string {
-    return `player_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-  }
-
-  private generateGameId(): string {
-    return `game_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-  }
-
-  private getAverageResponseTime(player: Player): number {
-    if (player.answers.length === 0) return Infinity;
-    const session: GameSession | null = this.currentGameSession();
-    if (!session) return Infinity;
-
-    const totalTime: number = player.answers.reduce(
-      (sum: number, answer: PlayerAnswer) => {
-        // Calculate time from when question was shown (we'll use a simple approximation)
-        // In a real app, we'd track when each question was shown
-        return sum + (answer.timestamp - session.createdAt.getTime());
-      },
-      0
-    );
-
-    return totalTime / player.answers.length;
+    this.socketService.disconnect();
+    this.socketService.resetSignals();
   }
 
   public hasPlayerAnsweredCurrentQuestion(): boolean {
-    const player: Player | null = this.currentPlayer();
-    const question: Question | null = this.currentQuestion();
-    if (!player || !question) return false;
-    return player.answers.some((a: PlayerAnswer) => a.questionId === question.id);
+    return this.lastAnswerResult() !== null;
   }
 
-  public getPlayerAnswer(playerId: string, questionId: string): PlayerAnswer | undefined {
-    const session: GameSession | null = this.currentGameSession();
-    if (!session) return undefined;
-    const player: Player | undefined = session.players.find((p: Player) => p.id === playerId);
-    return player?.answers.find((a: PlayerAnswer) => a.questionId === questionId);
+  public async reconnectToGame(): Promise<boolean> {
+    const gameCode: string | null = this.currentGameCode();
+    const playerId: string | null = this.currentPlayerId();
+
+    if (!gameCode || !playerId) {
+      return false;
+    }
+
+    try {
+      const response = await this.apiService.getGame(gameCode);
+
+      if (!response.game) {
+        this.resetGame();
+        return false;
+      }
+
+      this.currentState.set(response.game.state);
+
+      // Connect to socket
+      this.socketService.connect();
+      this.socketService.joinGame(gameCode, playerId);
+
+      return true;
+    } catch (error) {
+      console.error('Failed to reconnect:', error);
+      this.resetGame();
+      return false;
+    }
   }
 }
