@@ -40,6 +40,8 @@ cd server && npm run seed
 cd server && npm run build
 ```
 
+**Important**: See `server/SERVER_ARCHITECTURE.md` for backend architecture guidelines, folder structure, and coding conventions.
+
 ## Architecture
 
 **Entry Point**: `src/main.ts` bootstraps the application with `App` component from `src/app/app.ts`

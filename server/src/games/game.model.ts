@@ -98,4 +98,7 @@ GameSessionSchema.index({ code: 1 });
 // Index for cleaning up old games
 GameSessionSchema.index({ createdAt: 1 });
 
+// Index for finding games by player socket ID
+GameSessionSchema.index({ 'players.socketId': 1 });
+
 export const GameSession = mongoose.model<IGameSession>('GameSession', GameSessionSchema);

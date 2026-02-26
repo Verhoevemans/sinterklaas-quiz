@@ -1,9 +1,11 @@
 import 'dotenv/config';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+
 import { createApp } from './app.js';
 import { connectDatabase } from './config/database.js';
-import { setupGameSocket } from './socket/gameSocket.js';
+import { setupGameSocket } from './games/game.socket.js';
+import { logger } from './shared/logger.js';
 
 async function main(): Promise<void> {
   const port: number = parseInt(process.env.PORT || '3000');
@@ -31,12 +33,13 @@ async function main(): Promise<void> {
 
   // Start server
   httpServer.listen(port, () => {
+    logger.info('Server started', { port, frontendUrl });
     console.log(`Server running on http://localhost:${port}`);
     console.log(`Frontend URL: ${frontendUrl}`);
   });
 }
 
 main().catch((error) => {
-  console.error('Failed to start server:', error);
+  logger.error('Failed to start server', error);
   process.exit(1);
 });

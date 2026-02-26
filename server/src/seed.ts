@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { connectDatabase, disconnectDatabase } from './config/database.js';
-import { Question } from './models/Question.js';
+import { Question } from './questions/question.model.js';
+import { logger } from './shared/logger.js';
 
 const initialQuestions = [
   {
