@@ -1,7 +1,7 @@
 import { Server, Socket } from 'socket.io';
 
 import { logger } from '../shared/logger.js';
-import { GameController } from './game.controller.js';
+import { GameService } from './game.service.js';
 import { IPlayer, IGameSession } from './game.model.js';
 import { IQuestion } from '../questions/question.model.js';
 
@@ -25,12 +25,12 @@ export interface GameActionData {
 export class GameSocketHandler {
   private readonly io: Server;
   private readonly socket: Socket;
-  private readonly controller: GameController;
+  private readonly service: GameService;
 
   constructor(io: Server, socket: Socket) {
     this.io = io;
     this.socket = socket;
-    this.controller = new GameController();
+    this.service = new GameService();
   }
 
   /**
@@ -42,7 +42,7 @@ export class GameSocketHandler {
     try {
       const { gameCode, playerId } = data;
 
-      const player: IPlayer | null = await this.controller.updatePlayerSocketId(
+      const player: IPlayer | null = await this.service.updatePlayerSocketId(
         gameCode,
         playerId,
         this.socket.id
@@ -53,18 +53,15 @@ export class GameSocketHandler {
         return;
       }
 
-      // Join the game room
       this.socket.join(gameCode);
 
-      // Get full game state
-      const gameData = await this.controller.getGameWithQuestions(gameCode);
+      const gameData = await this.service.getGameWithQuestions(gameCode);
 
       if (!gameData) {
         this.socket.emit('error', { message: 'Game not found' });
         return;
       }
 
-      // Notify other players
       this.socket.to(gameCode).emit('player-joined', {
         player: {
           id: player.id,
@@ -74,7 +71,6 @@ export class GameSocketHandler {
         playerCount: gameData.game.players.length,
       });
 
-      // Send current game state to the joining player
       this.socket.emit('game-state', {
         game: {
           code: gameData.game.code,
@@ -106,9 +102,8 @@ export class GameSocketHandler {
     try {
       const { gameCode, playerId } = data;
 
-      const result = await this.controller.startGame(gameCode, playerId);
+      const result = await this.service.startGame(gameCode, playerId);
 
-      // Broadcast game started to all players
       this.io.to(gameCode).emit('game-started', {
         question: {
           id: result.question._id,
@@ -144,9 +139,8 @@ export class GameSocketHandler {
     try {
       const { gameCode, playerId, questionId, selectedIndex } = data;
 
-      const result = await this.controller.submitAnswer(gameCode, playerId, questionId, selectedIndex);
+      const result = await this.service.submitAnswer(gameCode, playerId, questionId, selectedIndex);
 
-      // Notify the player of their result
       this.socket.emit('answer-result', {
         isCorrect: result.isCorrect,
         correctAnswerIndex: result.correctAnswerIndex,
@@ -154,12 +148,10 @@ export class GameSocketHandler {
         newScore: result.newScore,
       });
 
-      // Get player info for broadcast
-      const game: IGameSession | null = await this.controller.findGameByCode(gameCode);
+      const game: IGameSession | null = await this.service.findGameByCode(gameCode);
       const player: IPlayer | undefined = game?.players.find((p) => p.id === playerId);
 
       if (player) {
-        // Broadcast that player has answered (without revealing if correct)
         this.socket.to(gameCode).emit('player-answered', {
           playerId: player.id,
           nickname: player.nickname,
@@ -184,10 +176,9 @@ export class GameSocketHandler {
     try {
       const { gameCode, playerId } = data;
 
-      const result = await this.controller.nextQuestion(gameCode, playerId);
+      const result = await this.service.nextQuestion(gameCode, playerId);
 
       if (result.ended) {
-        // Game ended
         this.io.to(gameCode).emit('game-ended', {
           players: result.game.players
             .map((p: IPlayer) => ({
@@ -209,7 +200,6 @@ export class GameSocketHandler {
 
         logger.info('Game ended via socket', { gameCode });
       } else {
-        // Next question
         this.io.to(gameCode).emit('question-changed', {
           question: {
             id: result.question!._id,
@@ -249,7 +239,7 @@ export class GameSocketHandler {
     try {
       const { gameCode, playerId } = data;
 
-      const result = await this.controller.endGame(gameCode, playerId);
+      const result = await this.service.endGame(gameCode, playerId);
 
       this.io.to(gameCode).emit('game-ended', {
         players: result.game.players
@@ -287,10 +277,9 @@ export class GameSocketHandler {
     logger.debug('GameSocketHandler.handleDisconnect', { socketId: this.socket.id });
 
     try {
-      const result = await this.controller.clearPlayerSocketId(this.socket.id);
+      const result = await this.service.clearPlayerSocketId(this.socket.id);
 
       if (result) {
-        // Notify other players
         this.socket.to(result.game.code).emit('player-left', {
           playerId: result.player.id,
           nickname: result.player.nickname,
