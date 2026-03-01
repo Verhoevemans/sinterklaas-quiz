@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 Full-stack Sinterklaas Quiz application:
-- **Frontend**: Angular 20.3 with zoneless change detection, signals, and standalone components
+- **Frontend**: Angular 20.3 with zoneless change detection, signals, and standalone components (in `/client` folder)
 - **Backend**: Node.js + Express.js + Socket.io + MongoDB (in `/server` folder)
 
 ## Development Commands
@@ -13,19 +13,19 @@ Full-stack Sinterklaas Quiz application:
 ### Frontend (Angular)
 ```bash
 # Start development server (http://localhost:4200)
-npm start
+cd client && npm start
 
 # Build for production
-npm run build
+cd client && npm run build
 
 # Run unit tests (Karma + Jasmine)
-npm test
+cd client && npm test
 
 # Generate new component
-ng generate component component-name
+cd client && ng generate component component-name
 
 # Format code (Prettier configured)
-npx prettier --write .
+cd client && npx prettier --write .
 ```
 
 ### Backend (Node.js)
@@ -44,14 +44,14 @@ cd server && npm run build
 
 ## Architecture
 
-**Entry Point**: `src/main.ts` bootstraps the application with `App` component from `src/app/app.ts`
+**Entry Point**: `client/src/main.ts` bootstraps the application with `App` component from `client/src/app/app.ts`
 
-**Configuration**: `src/app/app.config.ts` provides:
+**Configuration**: `client/src/app/app.config.ts` provides:
 - Zoneless change detection
 - Browser global error listeners
 - Router configuration
 
-**Routing**: Defined in `src/app/app.routes.ts` (currently empty, ready for route definitions)
+**Routing**: Defined in `client/src/app/app.routes.ts` (currently empty, ready for route definitions)
 
 **Component Structure**:
 - Components use separate files: `component.ts`, `component.html`, `component.css`
