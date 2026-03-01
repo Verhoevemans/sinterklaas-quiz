@@ -1,0 +1,13 @@
+# Compiled output
+/dist
+/tmp
+
+# Node
+/node_modules
+npm-debug.log
+
+# Miscellaneous
+/.angular/cache
+.sass-cache/
+/coverage
+/typings

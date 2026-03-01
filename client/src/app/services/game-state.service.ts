@@ -361,9 +361,17 @@ export class GameStateService {
         return false;
       }
 
+      // Restore full game state from the API response
       this.currentState.set(response.game.state);
+      this.totalQuestions.set(response.game.questionCount);
+      this.currentQuestionIndex.set(response.game.currentQuestionIndex);
+      this.currentPlayers.set(response.game.players);
 
-      // Connect to socket
+      if (response.game.state === 'in-progress' && response.currentQuestion) {
+        this.currentQuestion.set(response.currentQuestion);
+      }
+
+      // Reconnect to socket and rejoin the game room
       this.socketService.connect();
       this.socketService.joinGame(gameCode, playerId);
 

@@ -39,13 +39,33 @@ export class GameComponent implements OnInit {
     });
   }
 
-  public ngOnInit(): void {
+  public async ngOnInit(): Promise<void> {
     this.gameCode = this.route.snapshot.paramMap.get('code') ?? '';
     const currentGameCode: string | null = this.gameStateService.gameCode();
+
+    if (!currentGameCode || currentGameCode !== this.gameCode) {
+      this.router.navigate(['/']);
+      return;
+    }
+
+    // Socket not connected means the page was refreshed — reconnect before checking state
+    if (!this.gameStateService.socketConnected()) {
+      const reconnected: boolean = await this.gameStateService.reconnectToGame();
+      if (!reconnected) {
+        this.router.navigate(['/']);
+        return;
+      }
+    }
+
     const state = this.gameStateService.state();
 
-    if (!currentGameCode || currentGameCode !== this.gameCode || state !== 'in-progress') {
-      this.router.navigate(['/']);
+    if (state === 'completed') {
+      this.router.navigate(['/results', this.gameCode]);
+      return;
+    }
+
+    if (state !== 'in-progress') {
+      this.router.navigate(['/lobby', this.gameCode]);
       return;
     }
 

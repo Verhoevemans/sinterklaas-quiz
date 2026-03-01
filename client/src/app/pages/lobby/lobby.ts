@@ -26,13 +26,24 @@ export class LobbyComponent implements OnInit {
     });
   }
 
-  public ngOnInit(): void {
+  public async ngOnInit(): Promise<void> {
     this.gameCode = this.route.snapshot.paramMap.get('code') ?? '';
     const currentGameCode: string | null = this.gameStateService.gameCode();
 
     if (!currentGameCode || currentGameCode !== this.gameCode) {
       this.router.navigate(['/']);
       return;
+    }
+
+    // Socket not connected means the page was refreshed — reconnect to rejoin the room
+    if (!this.gameStateService.socketConnected()) {
+      const reconnected: boolean = await this.gameStateService.reconnectToGame();
+      if (!reconnected) {
+        this.router.navigate(['/']);
+        return;
+      }
+      // If the game already started (e.g. host started while this player was refreshing),
+      // the effect() in the constructor will handle navigating to /game
     }
   }
 
