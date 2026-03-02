@@ -345,6 +345,13 @@ export class GameStateService {
     return this.lastAnswerResult() !== null;
   }
 
+  public getSelectedIndexForCurrentQuestion(): number | null {
+    const player: Player | null = this.currentPlayer();
+    const question = this.currentQuestion();
+    if (!player || !question) return null;
+    return player.answers.find((a) => a.questionId === question.id)?.selectedIndex ?? null;
+  }
+
   public async reconnectToGame(): Promise<boolean> {
     const gameCode: string | null = this.currentGameCode();
     const playerId: string | null = this.currentPlayerId();
@@ -369,6 +376,20 @@ export class GameStateService {
 
       if (response.game.state === 'in-progress' && response.currentQuestion) {
         this.currentQuestion.set(response.currentQuestion);
+
+        // Restore answer result if the player already answered the current question
+        const player = response.game.players.find((p) => p.id === this.currentPlayerId());
+        const existingAnswer = player?.answers.find(
+          (a) => a.questionId === response.currentQuestion!.id
+        );
+        if (existingAnswer && player) {
+          this.lastAnswerResult.set({
+            isCorrect: existingAnswer.isCorrect,
+            correctAnswerIndex: response.currentQuestion.correctAnswerIndex,
+            explanation: response.currentQuestion.explanation,
+            newScore: player.score,
+          });
+        }
       }
 
       // Reconnect to socket and rejoin the game room

@@ -70,6 +70,15 @@ export class GameComponent implements OnInit {
     }
 
     this.lastQuestionIndex = this.gameStateService.questionIndex();
+
+    // Restore selected answer if the player already answered before refreshing
+    if (this.gameStateService.answerResult()) {
+      const selectedIndex: number | null =
+        this.gameStateService.getSelectedIndexForCurrentQuestion();
+      if (selectedIndex !== null) {
+        this.selectedAnswer.set(selectedIndex);
+      }
+    }
   }
 
   public selectAnswer(index: number): void {
