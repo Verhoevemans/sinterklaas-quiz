@@ -61,7 +61,7 @@
     </div>
 
     <div class="mini-leaderboard">
-      <h3>Tussenstand</h3>
+      <h3>Tussenstand (na {{ gameStateService.questionIndex() }} vragen)</h3>
       <div class="mini-players">
         @for (player of gameStateService.sortedPlayers().slice(0, 3); track player.id) {
           <div class="mini-player" [class.current]="player.id === gameStateService.playerId()">

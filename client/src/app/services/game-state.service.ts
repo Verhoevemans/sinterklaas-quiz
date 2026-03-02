@@ -178,15 +178,6 @@ export class GameStateService {
       const data: AnswerResultData | null = this.socketService.answerResult();
       if (data) {
         this.lastAnswerResult.set(data);
-        // Update current player's score
-        const playerId: string | null = this.currentPlayerId();
-        if (playerId) {
-          this.currentPlayers.update((players: Player[]) =>
-            players.map((p: Player) =>
-              p.id === playerId ? { ...p, score: data.newScore } : p
-            )
-          );
-        }
       }
     });
 
