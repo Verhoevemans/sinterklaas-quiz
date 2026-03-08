@@ -12,5 +12,6 @@ export interface GameSession {
   currentQuestionIndex: number;
   questions: Question[];
   state: GameState;
+  questionStartTime: number | null;
   createdAt: Date;
 }

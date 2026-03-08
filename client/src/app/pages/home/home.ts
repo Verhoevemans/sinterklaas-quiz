@@ -67,7 +67,7 @@ export class HomeComponent {
     }
 
     const nickname: string = this.createGameForm.get('nickname')?.value?.trim() ?? '';
-    const questionCount: number = this.createGameForm.get('questionCount')?.value ?? 15;
+    const questionCount: number = Number(this.createGameForm.get('questionCount')?.value ?? 15);
 
     this.isLoading.set(true);
     this.errorMessage.set('');

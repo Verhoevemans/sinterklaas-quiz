@@ -5,6 +5,7 @@ export interface IPlayerAnswer {
   selectedIndex: number;
   timestamp: number;
   isCorrect: boolean;
+  timeTaken: number;
 }
 
 export interface IPlayer {
@@ -24,6 +25,7 @@ export interface IGameSession extends Document {
   questionCount: number;
   currentQuestionIndex: number;
   state: 'lobby' | 'in-progress' | 'completed';
+  questionStartTime: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -34,6 +36,7 @@ const PlayerAnswerSchema: Schema = new Schema(
     selectedIndex: { type: Number, required: true },
     timestamp: { type: Number, required: true },
     isCorrect: { type: Boolean, required: true },
+    timeTaken: { type: Number, required: true },
   },
   { _id: false }
 );
@@ -85,6 +88,10 @@ const GameSessionSchema: Schema = new Schema(
       type: String,
       enum: ['lobby', 'in-progress', 'completed'],
       default: 'lobby',
+    },
+    questionStartTime: {
+      type: Number,
+      default: null,
     },
   },
   {

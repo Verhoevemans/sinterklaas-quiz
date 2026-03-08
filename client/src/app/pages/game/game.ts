@@ -1,4 +1,13 @@
-import { Component, ChangeDetectionStrategy, inject, OnInit, signal, effect } from '@angular/core';
+import {
+  Component,
+  ChangeDetectionStrategy,
+  inject,
+  OnInit,
+  OnDestroy,
+  signal,
+  computed,
+  effect,
+} from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { GameStateService } from '../../services/game-state.service';
 
@@ -9,7 +18,7 @@ import { GameStateService } from '../../services/game-state.service';
   styleUrl: './game.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class GameComponent implements OnInit {
+export class GameComponent implements OnInit, OnDestroy {
   private readonly router: Router = inject(Router);
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
   protected readonly gameStateService: GameStateService = inject(GameStateService);
@@ -20,7 +29,18 @@ export class GameComponent implements OnInit {
   public readonly selectedAnswer = signal<number | null>(null);
   private lastQuestionIndex: number = -1;
 
+  private readonly now = signal<number>(Date.now());
+  private readonly clockInterval: ReturnType<typeof setInterval>;
+
+  protected readonly countdown = computed<number>(() => {
+    const startTime: number | null = this.gameStateService.questionStartTimeValue();
+    if (!startTime) return 0;
+    return Math.max(0, Math.ceil((20000 - (this.now() - startTime)) / 1000));
+  });
+
   constructor() {
+    this.clockInterval = setInterval(() => this.now.set(Date.now()), 250);
+
     // Watch for game state changes
     effect(() => {
       const state = this.gameStateService.state();
@@ -37,6 +57,10 @@ export class GameComponent implements OnInit {
         this.selectedAnswer.set(null);
       }
     });
+  }
+
+  public ngOnDestroy(): void {
+    clearInterval(this.clockInterval);
   }
 
   public async ngOnInit(): Promise<void> {
@@ -72,7 +96,7 @@ export class GameComponent implements OnInit {
     this.lastQuestionIndex = this.gameStateService.questionIndex();
 
     // Restore selected answer if the player already answered before refreshing
-    if (this.gameStateService.answerResult()) {
+    if (this.gameStateService.hasPlayerAnsweredCurrentQuestion()) {
       const selectedIndex: number | null =
         this.gameStateService.getSelectedIndexForCurrentQuestion();
       if (selectedIndex !== null) {
@@ -130,9 +154,11 @@ export class GameComponent implements OnInit {
     const result = this.gameStateService.answerResult();
 
     if (!result) {
+      // Before reveal: show selection highlight (locked if submitted, interactive otherwise)
       return this.selectedAnswer() === index ? 'selected' : '';
     }
 
+    // After reveal: show correct/incorrect
     if (this.isCorrectAnswer(index)) {
       return 'correct';
     }

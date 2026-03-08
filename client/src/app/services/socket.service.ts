@@ -43,13 +43,17 @@ export interface GameStartedData {
   };
   questionIndex: number;
   totalQuestions: number;
+  startTime: number;
 }
 
 export interface AnswerResultData {
-  isCorrect: boolean;
+  received: boolean;
+}
+
+export interface AnswerRevealData {
   correctAnswerIndex: number;
   explanation: string;
-  newScore: number;
+  scores: Array<{ id: string; nickname: string; score: number }>;
 }
 
 export interface PlayerAnsweredData {
@@ -67,11 +71,7 @@ export interface QuestionChangedData {
   };
   questionIndex: number;
   totalQuestions: number;
-  scores: Array<{
-    id: string;
-    nickname: string;
-    score: number;
-  }>;
+  startTime: number;
 }
 
 export interface GameEndedData {
@@ -112,6 +112,7 @@ export class SocketService {
   public readonly playerLeft = signal<PlayerLeftData | null>(null);
   public readonly gameStarted = signal<GameStartedData | null>(null);
   public readonly answerResult = signal<AnswerResultData | null>(null);
+  public readonly answerReveal = signal<AnswerRevealData | null>(null);
   public readonly playerAnswered = signal<PlayerAnsweredData | null>(null);
   public readonly questionChanged = signal<QuestionChangedData | null>(null);
   public readonly gameEnded = signal<GameEndedData | null>(null);
@@ -165,6 +166,10 @@ export class SocketService {
 
     this.socket.on('answer-result', (data: AnswerResultData) => {
       this.answerResult.set(data);
+    });
+
+    this.socket.on('answer-reveal', (data: AnswerRevealData) => {
+      this.answerReveal.set(data);
     });
 
     this.socket.on('player-answered', (data: PlayerAnsweredData) => {
@@ -226,6 +231,7 @@ export class SocketService {
     this.playerLeft.set(null);
     this.gameStarted.set(null);
     this.answerResult.set(null);
+    this.answerReveal.set(null);
     this.playerAnswered.set(null);
     this.questionChanged.set(null);
     this.gameEnded.set(null);

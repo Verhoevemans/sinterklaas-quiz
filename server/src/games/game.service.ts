@@ -119,6 +119,7 @@ export class GameService {
 
     game.state = 'in-progress';
     game.currentQuestionIndex = 0;
+    game.questionStartTime = Date.now();
     await game.save();
 
     const question: IQuestion | null = await Question.findById(game.questionIds[0]);
@@ -137,12 +138,7 @@ export class GameService {
     playerId: string,
     questionId: string,
     selectedIndex: number
-  ): Promise<{
-    isCorrect: boolean;
-    correctAnswerIndex: number;
-    explanation: string;
-    newScore: number;
-  }> {
+  ): Promise<{ received: true; allAnswered: boolean }> {
     const game: IGameSession | null = await GameSession.findOne({ code });
 
     if (!game || game.state !== 'in-progress') {
@@ -169,28 +165,66 @@ export class GameService {
 
     const isCorrect: boolean = selectedIndex === question.correctAnswerIndex;
     const timestamp: number = Date.now();
+    const timeTaken: number = timestamp - (game.questionStartTime ?? timestamp);
 
     const answer: IPlayerAnswer = {
       questionId,
       selectedIndex,
       timestamp,
       isCorrect,
+      timeTaken,
     };
 
     player.answers.push(answer);
-    if (isCorrect) {
-      player.score += 100;
-    }
-
     await game.save();
+
+    // Check if all non-host players have answered this question
+    const nonHostPlayers: IPlayer[] = game.players.filter((p) => !p.isHost);
+    const allAnswered: boolean = nonHostPlayers.every((p) =>
+      p.answers.some((a) => a.questionId === questionId)
+    );
 
     logger.info('Answer submitted', { code, playerId, isCorrect });
 
+    return { received: true, allAnswered };
+  }
+
+  public async revealAnswers(
+    code: string
+  ): Promise<{ correctAnswerIndex: number; explanation: string; scores: Array<{ id: string; nickname: string; score: number }> }> {
+    const game: IGameSession | null = await GameSession.findOne({ code });
+
+    if (!game || game.state !== 'in-progress') {
+      throw new Error('Game not in progress');
+    }
+
+    const currentQuestionId: string = game.questionIds[game.currentQuestionIndex].toString();
+    const question: IQuestion | null = await Question.findById(currentQuestionId);
+
+    if (!question) {
+      throw new Error('Question not found');
+    }
+
+    // Award 100 pts to each player with a correct answer for the current questionId
+    for (const player of game.players) {
+      const answer: IPlayerAnswer | undefined = player.answers.find(
+        (a) => a.questionId === currentQuestionId
+      );
+      if (answer?.isCorrect) {
+        player.score += 100;
+      }
+    }
+
+    // Mark reveal as done
+    game.questionStartTime = null;
+    await game.save();
+
+    logger.info('Answers revealed', { code, questionIndex: game.currentQuestionIndex });
+
     return {
-      isCorrect,
       correctAnswerIndex: question.correctAnswerIndex,
       explanation: question.explanation,
-      newScore: player.score,
+      scores: game.players.map((p) => ({ id: p.id, nickname: p.nickname, score: p.score })),
     };
   }
 
@@ -219,6 +253,7 @@ export class GameService {
 
     if (nextIndex >= game.questionIds.length) {
       game.state = 'completed';
+      game.questionStartTime = null;
       await game.save();
 
       const questions: IQuestion[] = await Question.find({
@@ -231,6 +266,7 @@ export class GameService {
     }
 
     game.currentQuestionIndex = nextIndex;
+    game.questionStartTime = Date.now();
     await game.save();
 
     const question: IQuestion | null = await Question.findById(game.questionIds[nextIndex]);
@@ -261,6 +297,7 @@ export class GameService {
     }
 
     game.state = 'completed';
+    game.questionStartTime = null;
     await game.save();
 
     const questions: IQuestion[] = await Question.find({

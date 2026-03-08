@@ -2,8 +2,9 @@ import { Server, Socket } from 'socket.io';
 
 import { logger } from '../shared/logger.js';
 import { GameService } from './game.service.js';
-import { IPlayer, IGameSession } from './game.model.js';
+import { IPlayer } from './game.model.js';
 import { IQuestion } from '../questions/question.model.js';
+import { startQuestionTimer, clearGameTimer, triggerReveal } from './game.timer.js';
 
 export interface JoinGameData {
   gameCode: string;
@@ -114,7 +115,10 @@ export class GameSocketHandler {
         },
         questionIndex: 0,
         totalQuestions: result.game.questionCount,
+        startTime: result.game.questionStartTime,
       });
+
+      startQuestionTimer(this.io, this.service, gameCode);
 
       logger.info('Game started via socket', { gameCode });
     } catch (error) {
@@ -141,14 +145,9 @@ export class GameSocketHandler {
 
       const result = await this.service.submitAnswer(gameCode, playerId, questionId, selectedIndex);
 
-      this.socket.emit('answer-result', {
-        isCorrect: result.isCorrect,
-        correctAnswerIndex: result.correctAnswerIndex,
-        explanation: result.explanation,
-        newScore: result.newScore,
-      });
+      this.socket.emit('answer-result', { received: true });
 
-      const game: IGameSession | null = await this.service.findGameByCode(gameCode);
+      const game = await this.service.findGameByCode(gameCode);
       const player: IPlayer | undefined = game?.players.find((p) => p.id === playerId);
 
       if (player) {
@@ -158,7 +157,12 @@ export class GameSocketHandler {
         });
       }
 
-      logger.info('Answer submitted via socket', { gameCode, playerId, isCorrect: result.isCorrect });
+      if (result.allAnswered) {
+        clearGameTimer(gameCode);
+        await triggerReveal(this.io, this.service, gameCode);
+      }
+
+      logger.info('Answer submitted via socket', { gameCode, playerId });
     } catch (error) {
       logger.error('GameSocketHandler.submitAnswer', error);
 
@@ -176,9 +180,14 @@ export class GameSocketHandler {
     try {
       const { gameCode, playerId } = data;
 
+      clearGameTimer(gameCode);
+
       const result = await this.service.nextQuestion(gameCode, playerId);
 
       if (result.ended) {
+        const totalTimeTaken = (player: { answers: Array<{ timeTaken: number }> }): number =>
+          player.answers.reduce((sum, a) => sum + a.timeTaken, 0);
+
         this.io.to(gameCode).emit('game-ended', {
           players: result.game.players
             .map((p: IPlayer) => ({
@@ -188,7 +197,10 @@ export class GameSocketHandler {
               answers: p.answers,
               isHost: p.isHost,
             }))
-            .sort((a, b) => b.score - a.score),
+            .sort((a, b) => {
+              if (b.score !== a.score) return b.score - a.score;
+              return totalTimeTaken(a) - totalTimeTaken(b);
+            }),
           questions: result.questions!.map((q: IQuestion) => ({
             id: q._id,
             text: q.text,
@@ -210,12 +222,10 @@ export class GameSocketHandler {
           },
           questionIndex: result.game.currentQuestionIndex,
           totalQuestions: result.game.questionCount,
-          scores: result.game.players.map((p: IPlayer) => ({
-            id: p.id,
-            nickname: p.nickname,
-            score: p.score,
-          })),
+          startTime: result.game.questionStartTime,
         });
+
+        startQuestionTimer(this.io, this.service, gameCode);
 
         logger.info('Advanced to next question via socket', {
           gameCode,
@@ -239,7 +249,12 @@ export class GameSocketHandler {
     try {
       const { gameCode, playerId } = data;
 
+      clearGameTimer(gameCode);
+
       const result = await this.service.endGame(gameCode, playerId);
+
+      const totalTimeTaken = (player: { answers: Array<{ timeTaken: number }> }): number =>
+        player.answers.reduce((sum, a) => sum + a.timeTaken, 0);
 
       this.io.to(gameCode).emit('game-ended', {
         players: result.game.players
@@ -250,7 +265,10 @@ export class GameSocketHandler {
             answers: p.answers,
             isHost: p.isHost,
           }))
-          .sort((a, b) => b.score - a.score),
+          .sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            return totalTimeTaken(a) - totalTimeTaken(b);
+          }),
         questions: result.questions.map((q: IQuestion) => ({
           id: q._id,
           text: q.text,

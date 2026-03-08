@@ -21,6 +21,31 @@
   color: var(--color-primary);
 }
 
+.countdown {
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: var(--color-secondary);
+  min-width: 48px;
+  text-align: center;
+}
+
+.countdown.urgent {
+  color: var(--color-incorrect);
+  animation: pulse 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes pulse {
+  from { opacity: 1; }
+  to { opacity: 0.6; }
+}
+
+.waiting {
+  text-align: center;
+  color: var(--color-text-light);
+  font-style: italic;
+  margin-top: var(--spacing-lg);
+}
+
 .score {
   font-size: 1.2rem;
   font-weight: bold;

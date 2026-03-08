@@ -6,7 +6,7 @@ import {
   GameStateData,
   GameStartedData,
   QuestionChangedData,
-  AnswerResultData,
+  AnswerRevealData,
   GameEndedData,
 } from './socket.service';
 
@@ -27,8 +27,10 @@ export class GameStateService {
   private readonly currentQuestionIndex = signal<number>(0);
   private readonly totalQuestions = signal<number>(0);
   private readonly currentState = signal<'lobby' | 'in-progress' | 'completed'>('lobby');
-  private readonly lastAnswerResult = signal<AnswerResultData | null>(null);
+  private readonly lastAnswerResult = signal<AnswerRevealData | null>(null);
   private readonly finalResults = signal<GameEndedData | null>(null);
+  private readonly questionStartTime = signal<number | null>(null);
+  private readonly hasSubmitted = signal<boolean>(false);
 
   // Public computed signals
   public readonly gameCode: Signal<string | null> = this.currentGameCode.asReadonly();
@@ -39,10 +41,11 @@ export class GameStateService {
   public readonly questionCount: Signal<number> = this.totalQuestions.asReadonly();
   public readonly state: Signal<'lobby' | 'in-progress' | 'completed'> =
     this.currentState.asReadonly();
-  public readonly answerResult: Signal<AnswerResultData | null> = this.lastAnswerResult.asReadonly();
+  public readonly answerResult: Signal<AnswerRevealData | null> = this.lastAnswerResult.asReadonly();
   public readonly results: Signal<GameEndedData | null> = this.finalResults.asReadonly();
   public readonly socketConnected: Signal<boolean> = this.socketService.connected;
   public readonly socketError: Signal<string | null> = this.socketService.error;
+  public readonly questionStartTimeValue: Signal<number | null> = this.questionStartTime.asReadonly();
 
   public readonly currentPlayer: Signal<Player | null> = computed(() => {
     const players: Player[] = this.currentPlayers();
@@ -169,15 +172,34 @@ export class GameStateService {
           createdAt: new Date(),
           updatedAt: new Date(),
         });
+        this.questionStartTime.set(data.startTime);
+        this.hasSubmitted.set(false);
         this.lastAnswerResult.set(null);
       }
     });
 
-    // Answer result
+    // Answer submitted ack — just track that this player has submitted
     effect(() => {
-      const data: AnswerResultData | null = this.socketService.answerResult();
+      const data = this.socketService.answerResult();
+      if (data) {
+        this.hasSubmitted.set(true);
+      }
+    });
+
+    // Answer reveal — broadcast to all players simultaneously
+    effect(() => {
+      const data: AnswerRevealData | null = this.socketService.answerReveal();
       if (data) {
         this.lastAnswerResult.set(data);
+        // Update player scores from reveal data
+        this.currentPlayers.update((players: Player[]) =>
+          players.map((p: Player) => {
+            const scoreData = data.scores.find((s) => s.id === p.id);
+            return scoreData ? { ...p, score: scoreData.score } : p;
+          })
+        );
+        // null signals reveal is done — stop countdown
+        this.questionStartTime.set(null);
       }
     });
 
@@ -198,14 +220,9 @@ export class GameStateService {
           createdAt: new Date(),
           updatedAt: new Date(),
         });
+        this.questionStartTime.set(data.startTime);
+        this.hasSubmitted.set(false);
         this.lastAnswerResult.set(null);
-        // Update scores
-        this.currentPlayers.update((players: Player[]) =>
-          players.map((p: Player) => {
-            const scoreData = data.scores.find((s) => s.id === p.id);
-            return scoreData ? { ...p, score: scoreData.score } : p;
-          })
-        );
       }
     });
 
@@ -324,6 +341,8 @@ export class GameStateService {
     this.currentState.set('lobby');
     this.lastAnswerResult.set(null);
     this.finalResults.set(null);
+    this.questionStartTime.set(null);
+    this.hasSubmitted.set(false);
 
     sessionStorage.removeItem(STORAGE_KEY_GAME_CODE);
     sessionStorage.removeItem(STORAGE_KEY_PLAYER_ID);
@@ -333,7 +352,7 @@ export class GameStateService {
   }
 
   public hasPlayerAnsweredCurrentQuestion(): boolean {
-    return this.lastAnswerResult() !== null;
+    return this.hasSubmitted();
   }
 
   public getSelectedIndexForCurrentQuestion(): number | null {
@@ -368,18 +387,34 @@ export class GameStateService {
       if (response.game.state === 'in-progress' && response.currentQuestion) {
         this.currentQuestion.set(response.currentQuestion);
 
-        // Restore answer result if the player already answered the current question
-        const player = response.game.players.find((p) => p.id === this.currentPlayerId());
+        const player = response.game.players.find((p: Player) => p.id === this.currentPlayerId());
         const existingAnswer = player?.answers.find(
-          (a) => a.questionId === response.currentQuestion!.id
+          (a: PlayerAnswer) => a.questionId === response.currentQuestion!.id
         );
-        if (existingAnswer && player) {
-          this.lastAnswerResult.set({
-            isCorrect: existingAnswer.isCorrect,
-            correctAnswerIndex: response.currentQuestion.correctAnswerIndex,
-            explanation: response.currentQuestion.explanation,
-            newScore: player.score,
-          });
+
+        if (existingAnswer) {
+          // Player already answered this question
+          this.hasSubmitted.set(true);
+        }
+
+        const startTime: number | null = response.game.questionStartTime ?? null;
+
+        if (startTime === null) {
+          // Reveal has already happened — reconstruct reveal state
+          this.questionStartTime.set(null);
+          if (response.currentQuestion.correctAnswerIndex >= 0) {
+            this.lastAnswerResult.set({
+              correctAnswerIndex: response.currentQuestion.correctAnswerIndex,
+              explanation: response.currentQuestion.explanation,
+              scores: response.game.players.map((p: Player) => ({
+                id: p.id,
+                nickname: p.nickname,
+                score: p.score,
+              })),
+            });
+          }
+        } else {
+          this.questionStartTime.set(startTime);
         }
       }
 
