@@ -1,59 +1,61 @@
-# SinterklaasQuiz
+# Sinterklaas Quiz
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 20.3.4.
+A real-time multiplayer quiz app built for Sinterklaas evening. A host presents questions on a shared screen while players join on their phones and answer within a 20-second window. Scores are revealed simultaneously after each question.
 
-## Development server
+## Stack
 
-To start a local development server, run:
+| Layer | Technology |
+|---|---|
+| Frontend | Angular 20.3 — zoneless, signals, standalone components |
+| Backend | Node.js + Express + Socket.io |
+| Database | MongoDB (Mongoose) |
 
-```bash
-ng serve
-```
+Frontend runs on `:4200`, backend on `:3000`.
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+## Getting started
 
 ```bash
-ng generate component component-name
+# Backend
+cd server && npm install
+npm run seed      # seed the database with questions
+npm run dev       # start dev server
+
+# Frontend (separate terminal)
+cd client && npm install
+npm start
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+## Project structure
 
-```bash
-ng generate --help
+```
+sinterklaas-quiz/
+├── client/                  # Angular frontend
+│   └── src/
+│       ├── styles.css       # Global styles + shared CSS classes
+│       └── app/
+│           ├── pages/
+│           │   ├── home/
+│           │   ├── lobby/
+│           │   ├── game/
+│           │   │   ├── game.ts / .html / .css   # Parent: routing + countdown
+│           │   │   ├── host-view/               # TV/laptop presenter view
+│           │   │   └── player-view/             # Mobile player view
+│           │   └── results/
+│           ├── services/
+│           │   ├── game-state.service.ts        # All game state + socket effects
+│           │   ├── socket.service.ts            # Socket.io client + event signals
+│           │   └── api.service.ts
+│           └── models/                          # Shared TypeScript interfaces
+└── server/                  # Node.js backend
+    └── src/
+        └── games/           # See server/SERVER_ARCHITECTURE.md
 ```
 
-## Building
+## Game flow
 
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+1. Host creates a game → gets a room code
+2. Players join with the code and a nickname
+3. Host starts the game
+4. Each question: 20-second timer → players submit answers → timer fires (or all answered) → answer + scores revealed to everyone simultaneously
+5. Host advances to next question
+6. After the last question → results page

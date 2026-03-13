@@ -108,6 +108,37 @@ Code formatting rules in package.json:
 - Use the `providedIn: 'root'` option for singleton services
 - Use the `inject()` function instead of constructor injection
 
+## CSS Conventions
+
+### CSS Nesting
+Use native CSS nesting to group a block's states, children, and modifiers together. Never repeat the parent selector in separate flat rules.
+
+```css
+/* Correct */
+.option-button {
+  /* base styles */
+
+  &:hover:not(:disabled) { ... }
+  &:disabled { cursor: not-allowed; }
+
+  &.correct {
+    border-color: var(--color-correct);
+    & .option-letter { background: var(--color-correct); }
+  }
+
+  & .option-text { flex: 1; }
+}
+
+/* Wrong — do not do this */
+.option-button { ... }
+.option-button:hover:not(:disabled) { ... }
+.option-button.correct { ... }
+.option-button.correct .option-letter { ... }
+```
+
+### Shared styles go in `styles.css`
+If a class is used in two or more components, define it in `client/src/styles.css`, not in the component files. Component CSS files then only contain overrides (e.g. a different font-size) and component-specific layout.
+
 ## Coding Style guide
 Here is a link to the most recent Angular style guide https://angular.dev/style-guide
 
