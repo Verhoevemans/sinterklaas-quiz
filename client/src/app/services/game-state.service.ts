@@ -8,6 +8,7 @@ import {
   QuestionChangedData,
   AnswerRevealData,
   GameEndedData,
+  PlayerAnsweredData,
 } from './socket.service';
 
 const STORAGE_KEY_PLAYER_ID: string = 'sinterklaas-quiz-player-id';
@@ -31,6 +32,7 @@ export class GameStateService {
   private readonly finalResults = signal<GameEndedData | null>(null);
   private readonly questionStartTime = signal<number | null>(null);
   private readonly hasSubmitted = signal<boolean>(false);
+  private readonly answeredPlayerIds = signal<string[]>([]);
 
   // Public computed signals
   public readonly gameCode: Signal<string | null> = this.currentGameCode.asReadonly();
@@ -66,6 +68,18 @@ export class GameStateService {
       return 0;
     });
   });
+
+  public readonly answeredCount: Signal<number> = computed(() => this.answeredPlayerIds().length);
+
+  public readonly nonHostPlayerCount: Signal<number> = computed(() =>
+    this.currentPlayers().filter((p: Player) => !p.isHost).length
+  );
+
+  public readonly nonHostSortedPlayers: Signal<Player[]> = computed(() =>
+    [...this.currentPlayers()]
+      .filter((p: Player) => !p.isHost)
+      .sort((a: Player, b: Player) => (b.score !== a.score ? b.score - a.score : 0))
+  );
 
   constructor() {
     this.loadFromStorage();
@@ -175,6 +189,7 @@ export class GameStateService {
         this.questionStartTime.set(data.startTime);
         this.hasSubmitted.set(false);
         this.lastAnswerResult.set(null);
+        this.answeredPlayerIds.set([]);
       }
     });
 
@@ -183,6 +198,16 @@ export class GameStateService {
       const data = this.socketService.answerResult();
       if (data) {
         this.hasSubmitted.set(true);
+      }
+    });
+
+    // Player answered — track for host answered-count display
+    effect(() => {
+      const data: PlayerAnsweredData | null = this.socketService.playerAnswered();
+      if (data) {
+        this.answeredPlayerIds.update((ids: string[]) =>
+          ids.includes(data.playerId) ? ids : [...ids, data.playerId]
+        );
       }
     });
 
@@ -223,6 +248,7 @@ export class GameStateService {
         this.questionStartTime.set(data.startTime);
         this.hasSubmitted.set(false);
         this.lastAnswerResult.set(null);
+        this.answeredPlayerIds.set([]);
       }
     });
 
@@ -343,6 +369,7 @@ export class GameStateService {
     this.finalResults.set(null);
     this.questionStartTime.set(null);
     this.hasSubmitted.set(false);
+    this.answeredPlayerIds.set([]);
 
     sessionStorage.removeItem(STORAGE_KEY_GAME_CODE);
     sessionStorage.removeItem(STORAGE_KEY_PLAYER_ID);

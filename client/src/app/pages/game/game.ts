@@ -10,10 +10,12 @@ import {
 } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { GameStateService } from '../../services/game-state.service';
+import { HostViewComponent } from './host-view/host-view';
+import { PlayerViewComponent } from './player-view/player-view';
 
 @Component({
   selector: 'app-game',
-  imports: [],
+  imports: [HostViewComponent, PlayerViewComponent],
   templateUrl: './game.html',
   styleUrl: './game.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -23,12 +25,7 @@ export class GameComponent implements OnInit, OnDestroy {
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
   protected readonly gameStateService: GameStateService = inject(GameStateService);
 
-  protected readonly String: StringConstructor = String;
-
-  public gameCode: string = '';
-  public readonly selectedAnswer = signal<number | null>(null);
-  private lastQuestionIndex: number = -1;
-
+  private gameCode: string = '';
   private readonly now = signal<number>(Date.now());
   private readonly clockInterval: ReturnType<typeof setInterval>;
 
@@ -41,20 +38,10 @@ export class GameComponent implements OnInit, OnDestroy {
   constructor() {
     this.clockInterval = setInterval(() => this.now.set(Date.now()), 250);
 
-    // Watch for game state changes
     effect(() => {
       const state = this.gameStateService.state();
       if (state === 'completed' && this.gameCode) {
         this.router.navigate(['/results', this.gameCode]);
-      }
-    });
-
-    // Reset answer selection when question changes
-    effect(() => {
-      const questionIndex: number = this.gameStateService.questionIndex();
-      if (questionIndex !== this.lastQuestionIndex) {
-        this.lastQuestionIndex = questionIndex;
-        this.selectedAnswer.set(null);
       }
     });
   }
@@ -72,7 +59,6 @@ export class GameComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Socket not connected means the page was refreshed — reconnect before checking state
     if (!this.gameStateService.socketConnected()) {
       const reconnected: boolean = await this.gameStateService.reconnectToGame();
       if (!reconnected) {
@@ -92,90 +78,5 @@ export class GameComponent implements OnInit, OnDestroy {
       this.router.navigate(['/lobby', this.gameCode]);
       return;
     }
-
-    this.lastQuestionIndex = this.gameStateService.questionIndex();
-
-    // Restore selected answer if the player already answered before refreshing
-    if (this.gameStateService.hasPlayerAnsweredCurrentQuestion()) {
-      const selectedIndex: number | null =
-        this.gameStateService.getSelectedIndexForCurrentQuestion();
-      if (selectedIndex !== null) {
-        this.selectedAnswer.set(selectedIndex);
-      }
-    }
-  }
-
-  public selectAnswer(index: number): void {
-    if (this.hasAnswered()) {
-      return;
-    }
-
-    this.selectedAnswer.set(index);
-  }
-
-  public submitAnswer(): void {
-    const selected: number | null = this.selectedAnswer();
-    const question = this.gameStateService.question();
-
-    if (selected === null || !question) {
-      return;
-    }
-
-    this.gameStateService.submitAnswer(question.id, selected);
-  }
-
-  public nextQuestion(): void {
-    const questionIndex: number = this.gameStateService.questionIndex();
-    const questionCount: number = this.gameStateService.questionCount();
-
-    if (questionIndex + 1 >= questionCount) {
-      this.gameStateService.endGame();
-    } else {
-      this.gameStateService.nextQuestion();
-    }
-    // Navigation/state updates happen via socket events
-  }
-
-  public hasAnswered(): boolean {
-    return this.gameStateService.hasPlayerAnsweredCurrentQuestion();
-  }
-
-  public canSubmit(): boolean {
-    return this.selectedAnswer() !== null && !this.hasAnswered();
-  }
-
-  public isCorrectAnswer(index: number): boolean {
-    const result = this.gameStateService.answerResult();
-    if (!result) return false;
-    return result.correctAnswerIndex === index;
-  }
-
-  public getAnswerClass(index: number): string {
-    const result = this.gameStateService.answerResult();
-
-    if (!result) {
-      // Before reveal: show selection highlight (locked if submitted, interactive otherwise)
-      return this.selectedAnswer() === index ? 'selected' : '';
-    }
-
-    // After reveal: show correct/incorrect
-    if (this.isCorrectAnswer(index)) {
-      return 'correct';
-    }
-
-    if (this.selectedAnswer() === index) {
-      return 'incorrect';
-    }
-
-    return '';
-  }
-
-  public getExplanation(): string {
-    const result = this.gameStateService.answerResult();
-    return result?.explanation ?? '';
-  }
-
-  public showExplanation(): boolean {
-    return this.gameStateService.answerResult() !== null;
   }
 }

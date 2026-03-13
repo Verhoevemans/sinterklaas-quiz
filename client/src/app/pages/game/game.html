@@ -1,89 +1,11 @@
-<div class="game-container">
-  @if (gameStateService.question(); as question) {
-    <div class="game-header">
-      <div class="progress">
-        Vraag {{ gameStateService.questionIndex() + 1 }} van {{ gameStateService.questionCount() }}
-      </div>
-      @if (!showExplanation()) {
-        <div class="countdown" [class.urgent]="countdown() <= 5 && countdown() > 0">
-          {{ countdown() }}s
-        </div>
-      }
-      <div class="score">
-        Score: {{ gameStateService.currentPlayer()?.score ?? 0 }}
-      </div>
-    </div>
-
-    <div class="question-card">
-      <h2 class="question-text">{{ question.text }}</h2>
-
-      <div class="options">
-        @for (option of question.options; track $index) {
-          <button
-            class="option-button"
-            [class]="getAnswerClass($index)"
-            (click)="selectAnswer($index)"
-            [disabled]="hasAnswered()"
-          >
-            <span class="option-letter">{{ String.fromCharCode(65 + $index) }}</span>
-            <span class="option-text">{{ option }}</span>
-          </button>
-        }
-      </div>
-
-      @if (!hasAnswered() && !showExplanation()) {
-        <div class="action-area">
-          <button
-            class="primary-button"
-            (click)="submitAnswer()"
-            [disabled]="!canSubmit()"
-          >
-            Antwoord Verzenden
-          </button>
-        </div>
-      }
-
-      @if (hasAnswered() && !showExplanation()) {
-        <p class="waiting">Je antwoord is verzonden! Wachten op de uitslag...</p>
-      }
-
-      @if (showExplanation()) {
-        <div class="explanation-card">
-          <h3>Uitleg</h3>
-          <p>{{ getExplanation() }}</p>
-
-          <div class="action-area">
-            @if (gameStateService.isHost()) {
-              <button class="primary-button" (click)="nextQuestion()">
-                @if (gameStateService.questionIndex() + 1 >= gameStateService.questionCount()) {
-                  Naar Resultaten
-                } @else {
-                  Volgende Vraag
-                }
-              </button>
-            } @else {
-              <p class="waiting">Wachten op de host...</p>
-            }
-          </div>
-        </div>
-      }
-    </div>
-
-    <div class="mini-leaderboard">
-      <h3>Tussenstand (na {{ gameStateService.questionIndex() }} vragen)</h3>
-      <div class="mini-players">
-        @for (player of gameStateService.sortedPlayers().slice(0, 3); track player.id) {
-          <div class="mini-player" [class.current]="player.id === gameStateService.playerId()">
-            <span class="position">{{ $index + 1 }}.</span>
-            <span class="name">{{ player.nickname }}</span>
-            <span class="points">{{ player.score }}</span>
-          </div>
-        }
-      </div>
-    </div>
+@if (gameStateService.question()) {
+  @if (gameStateService.isHost()) {
+    <app-host-view [countdown]="countdown()" />
   } @else {
-    <div class="loading">
-      <p>Laden...</p>
-    </div>
+    <app-player-view [countdown]="countdown()" />
   }
-</div>
+} @else {
+  <div class="loading">
+    <p>Laden...</p>
+  </div>
+}

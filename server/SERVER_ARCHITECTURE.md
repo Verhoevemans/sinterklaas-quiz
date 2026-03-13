@@ -18,10 +18,12 @@ server/src/
 │       └── admin-auth.middleware.ts
 ├── games/
 │   ├── game.model.ts           # Mongoose schema & model
-│   ├── game.controller.ts      # Business logic + request handling
+│   ├── game.service.ts         # Business logic (shared by HTTP + socket layers)
+│   ├── game.controller.ts      # HTTP request handling
 │   ├── game.routes.ts          # Express route definitions (minimal)
 │   ├── game.socket.ts          # Socket event registrations
-│   └── game.socket-handler.ts  # Socket event logic
+│   ├── game.socket-handler.ts  # Socket event logic
+│   └── game.timer.ts           # Module-level question timer (see Timer section)
 └── questions/
     ├── question.model.ts       # Mongoose schema & model
     ├── question.controller.ts  # Business logic + request handling
@@ -39,6 +41,7 @@ All files use **kebab-case** with a **type suffix**:
 | Controller (logic) | `.controller.ts` | `game.controller.ts` |
 | Socket Events | `.socket.ts` | `game.socket.ts` |
 | Socket Handlers | `.socket-handler.ts` | `game.socket-handler.ts` |
+| Timers / background logic | `.timer.ts` | `game.timer.ts` |
 | Middleware | `.middleware.ts` | `admin-auth.middleware.ts` |
 | Utilities | `.util.ts` | `logger.util.ts` |
 
@@ -212,6 +215,75 @@ export class GameSocketHandler {
 }
 ```
 
+## Service Layer
+
+Business logic lives in a dedicated `.service.ts` file, not in controllers or socket handlers directly. Both the HTTP layer (`game.controller.ts`) and the socket layer (`game.socket-handler.ts`) instantiate and call the service.
+
+```typescript
+// game.service.ts
+export class GameService {
+  public async startGame(code: string, playerId: string): Promise<{ game: IGameSession; question: IQuestion }> { ... }
+  public async submitAnswer(...): Promise<{ received: true; allAnswered: boolean }> { ... }
+  public async revealAnswers(code: string): Promise<RevealResult> { ... }
+  public async nextQuestion(...): Promise<NextQuestionResult> { ... }
+}
+```
+
+Each `GameSocketHandler` creates its own `GameService` instance. This is safe because all state is in MongoDB, not in the service object.
+
+## Question Timer (`game.timer.ts`)
+
+The 20-second per-question countdown is owned by the **server** to prevent client drift and cheating.
+
+**Key design decisions:**
+
+- The timer state lives in a **module-level `Map<gameCode, NodeJS.Timeout>`** in `game.timer.ts`. This map is shared across all `GameSocketHandler` instances because JavaScript module scope is a singleton within the process.
+- `game.timer.ts` is a separate file (not inside `game.socket.ts`) to avoid a circular import between `game.socket.ts` → `game.socket-handler.ts` → `game.socket.ts`.
+
+### API
+
+```typescript
+// Start (or restart) the 20-second timer for a game
+startQuestionTimer(io: Server, service: GameService, gameCode: string): void
+
+// Cancel the timer (call before nextQuestion / endGame / early reveal)
+clearGameTimer(gameCode: string): void
+
+// Award scores + emit 'answer-reveal' to the room
+triggerReveal(io: Server, service: GameService, gameCode: string): Promise<void>
+```
+
+### When to call each function
+
+| Event | Action |
+|---|---|
+| Host starts game | `startQuestionTimer` after emitting `game-started` |
+| Player submits and all have answered | `clearGameTimer` then `triggerReveal` |
+| Timer fires naturally | `triggerReveal` (called internally by `setTimeout` callback) |
+| Host advances question | `clearGameTimer` first, then `startQuestionTimer` after emitting `question-changed` |
+| Host ends game early | `clearGameTimer` before processing |
+
+## Socket Events Reference
+
+| Event | Direction | Trigger | Key payload |
+|---|---|---|---|
+| `game-started` | server → all | host starts game | `{ question, questionIndex, totalQuestions, startTime }` |
+| `question-changed` | server → all | host advances | `{ question, questionIndex, totalQuestions, startTime }` |
+| `submit-answer` | client → server | player submits | `{ gameCode, playerId, questionId, selectedIndex }` |
+| `answer-result` | server → player | submit ack | `{ received: true }` |
+| `answer-reveal` | server → all | timer fires or all answered | `{ correctAnswerIndex, explanation, scores[] }` |
+| `game-ended` | server → all | game complete | `{ players[], questions[], endedEarly? }` |
+
+**Important:** `answer-result` is a private ack to the submitting player only. The correct answer is never sent until `answer-reveal` is broadcast to everyone simultaneously.
+
+### Score update timing
+
+Scores are **not** updated at submit time. `GameService.submitAnswer()` only records the answer and `timeTaken`. Points (100 per correct answer) are awarded inside `GameService.revealAnswers()` when the timer fires or all players have answered.
+
+### Tiebreaker
+
+`game-ended` players are sorted by `score DESC`, then by `sum(answers.timeTaken) ASC`. `timeTaken` (ms) is stored on each `IPlayerAnswer` at submit time as `Date.now() - game.questionStartTime`.
+
 ## Logging Standards
 
 ### API Logging
@@ -268,10 +340,12 @@ export interface IPlayer {
 export interface IGameSession extends Document {
   code: string;
   players: IPlayer[];
+  questionStartTime: number | null; // null = reveal already fired
 }
 
 const GameSessionSchema: Schema = new Schema<IGameSession>({
   code: { type: String, required: true, unique: true },
+  questionStartTime: { type: Number, default: null },
 });
 
 export const GameSession = mongoose.model<IGameSession>('GameSession', GameSessionSchema);

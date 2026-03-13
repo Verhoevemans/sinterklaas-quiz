@@ -1,0 +1,72 @@
+<div class="player-container">
+  <div class="game-header">
+    <div class="progress">
+      Vraag {{ gameStateService.questionIndex() + 1 }} / {{ gameStateService.questionCount() }}
+    </div>
+    @if (!showExplanation()) {
+      <div class="countdown" [class.urgent]="countdown() <= 5 && countdown() > 0">
+        {{ countdown() }}s
+      </div>
+    }
+    <div class="score">Score: {{ gameStateService.currentPlayer()?.score ?? 0 }}</div>
+  </div>
+
+  <div class="question-text">
+    <p>{{ gameStateService.question()!.text }}</p>
+  </div>
+
+  <div class="options">
+    @for (option of gameStateService.question()!.options; track $index) {
+      <button
+        class="option-button"
+        [class]="getAnswerClass($index)"
+        (click)="selectAnswer($index)"
+        [disabled]="hasAnswered()"
+      >
+        <span class="option-letter">{{ String.fromCharCode(65 + $index) }}</span>
+        <span class="option-text">{{ option }}</span>
+      </button>
+    }
+  </div>
+
+  @if (!hasAnswered() && !showExplanation()) {
+    <div class="action-area">
+      <button
+        class="primary-button"
+        (click)="submitAnswer()"
+        [disabled]="selectedAnswer() === null"
+      >
+        Antwoord Verzenden
+      </button>
+    </div>
+  }
+
+  @if (hasAnswered() && !showExplanation()) {
+    <p class="waiting">Je antwoord is verzonden! Wachten op de uitslag...</p>
+  }
+
+  @if (showExplanation()) {
+    <div class="result-card">
+      <h3 [class]="getResultClass()">{{ getResultTitle() }}</h3>
+      <p>{{ gameStateService.answerResult()!.explanation }}</p>
+    </div>
+
+    <div class="leaderboard-card">
+      <h3>Tussenstand</h3>
+      <div class="leaderboard-list">
+        @for (player of gameStateService.nonHostSortedPlayers(); track player.id) {
+          <div
+            class="leaderboard-row"
+            [class.current-player]="player.id === gameStateService.playerId()"
+          >
+            <span class="position">{{ $index + 1 }}.</span>
+            <span class="name">{{ player.nickname }}</span>
+            <span class="points">{{ player.score }}</span>
+          </div>
+        }
+      </div>
+    </div>
+
+    <p class="waiting">Wachten op de host...</p>
+  }
+</div>
