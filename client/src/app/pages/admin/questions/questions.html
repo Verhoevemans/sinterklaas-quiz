@@ -1,0 +1,75 @@
+<div class="questions-page">
+  <div class="page-header">
+    <h1>Vragen beheer</h1>
+    <div class="header-actions">
+      <label class="toggle-label">
+        <input type="checkbox" [checked]="includeDeleted()" (change)="toggleIncludeDeleted()" />
+        Toon verwijderde
+      </label>
+      <button class="primary-button" (click)="navigateToNew()">+ Nieuwe vraag</button>
+    </div>
+  </div>
+
+  @if (error()) {
+    <div class="error-message">{{ error() }}</div>
+  }
+
+  @if (loading()) {
+    <div class="loading-state">Laden...</div>
+  } @else {
+    <p class="questions-meta">{{ total() }} vragen</p>
+
+    <div class="questions-list">
+      @for (q of questions(); track q._id) {
+        <div class="question-card" [class.deleted]="q.isDeleted">
+          <div class="question-body">
+            <p class="question-text">{{ q.text }}</p>
+            <div class="question-meta">
+              <span
+                class="status-badge"
+                [class.active]="q.isActive && !q.isDeleted"
+                [class.inactive]="!q.isActive && !q.isDeleted"
+                [class.deleted]="q.isDeleted"
+              >
+                @if (q.isDeleted) { Verwijderd } @else if (q.isActive) { Actief } @else { Inactief }
+              </span>
+              <span class="answer-badge">
+                Antwoord: {{ ['A', 'B', 'C', 'D'][q.correctAnswerIndex] }}
+              </span>
+            </div>
+          </div>
+          <div class="question-actions">
+            @if (!q.isDeleted) {
+              <button class="secondary-button" (click)="navigateToEdit(q._id)">Bewerken</button>
+              <button class="danger-button" (click)="deleteQuestion(q._id)">Verwijderen</button>
+            } @else {
+              <button class="secondary-button" (click)="restoreQuestion(q._id)">Herstellen</button>
+            }
+          </div>
+        </div>
+      } @empty {
+        <p class="empty-state">Geen vragen gevonden.</p>
+      }
+    </div>
+
+    @if (totalPages() > 1) {
+      <div class="pagination">
+        <button
+          class="secondary-button"
+          [disabled]="currentPage() === 1"
+          (click)="setPage(currentPage() - 1)"
+        >
+          Vorige
+        </button>
+        <span class="page-info">{{ currentPage() }} / {{ totalPages() }}</span>
+        <button
+          class="secondary-button"
+          [disabled]="currentPage() === totalPages()"
+          (click)="setPage(currentPage() + 1)"
+        >
+          Volgende
+        </button>
+      </div>
+    }
+  }
+</div>

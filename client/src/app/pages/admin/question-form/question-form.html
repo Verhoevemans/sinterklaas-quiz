@@ -1,0 +1,62 @@
+<div class="form-page">
+  <div class="form-header">
+    <h1>{{ isEditMode() ? 'Vraag bewerken' : 'Nieuwe vraag' }}</h1>
+  </div>
+
+  @if (loading()) {
+    <div class="loading-state">Laden...</div>
+  } @else {
+    <form [formGroup]="form" (ngSubmit)="submit()" class="question-form">
+      <div class="form-group">
+        <label for="text">Vraag</label>
+        <textarea id="text" formControlName="text" rows="3" placeholder="Typ de vraag..."></textarea>
+      </div>
+
+      <fieldset class="options-fieldset">
+        <legend>Antwoordopties — selecteer het juiste antwoord</legend>
+        @for (letter of ['A', 'B', 'C', 'D']; track letter; let i = $index) {
+          <div class="option-row" [class.selected]="form.value.correctAnswerIndex === i">
+            <label class="option-radio">
+              <input type="radio" formControlName="correctAnswerIndex" [value]="i" />
+              <span class="option-letter-badge">{{ letter }}</span>
+            </label>
+            <input
+              type="text"
+              [formControlName]="'option' + i"
+              [placeholder]="'Optie ' + letter"
+              class="option-input"
+            />
+          </div>
+        }
+      </fieldset>
+
+      <div class="form-group">
+        <label for="explanation">Uitleg</label>
+        <textarea
+          id="explanation"
+          formControlName="explanation"
+          rows="4"
+          placeholder="Geef een uitleg bij het juiste antwoord..."
+        ></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" formControlName="isActive" />
+          Actief (wordt gebruikt in spellen)
+        </label>
+      </div>
+
+      @if (error()) {
+        <div class="error-message">{{ error() }}</div>
+      }
+
+      <div class="form-actions">
+        <button type="button" class="secondary-button" (click)="cancel()">Annuleren</button>
+        <button type="submit" class="primary-button" [disabled]="form.invalid || saving()">
+          @if (saving()) { Opslaan... } @else { Opslaan }
+        </button>
+      </div>
+    </form>
+  }
+</div>

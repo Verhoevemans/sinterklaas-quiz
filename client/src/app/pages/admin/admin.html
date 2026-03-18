@@ -1,0 +1,11 @@
+<div class="admin-layout">
+  <header class="admin-header">
+    <span class="admin-title">Sinterklaas Quiz — Beheer</span>
+    @if (isAuthenticated()) {
+      <button class="secondary-button" (click)="logout()">Uitloggen</button>
+    }
+  </header>
+  <main class="admin-content">
+    <router-outlet />
+  </main>
+</div>

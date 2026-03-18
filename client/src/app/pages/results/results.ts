@@ -32,7 +32,7 @@ export class ResultsComponent implements OnInit {
     const player: Player | null = this.gameStateService.currentPlayer();
     if (!player) return null;
 
-    const totalQuestions: number = player.answers.length;
+    const totalQuestions: number = this.gameStateService.results()?.questions.length ?? player.answers.length;
     const correctAnswers: number = player.answers.filter((a) => a.isCorrect).length;
     const accuracy: number = totalQuestions > 0 ? (correctAnswers / totalQuestions) * 100 : 0;
 

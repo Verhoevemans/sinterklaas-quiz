@@ -1,0 +1,114 @@
+.form-page {
+  max-width: 700px;
+}
+
+.form-header {
+  margin-bottom: var(--spacing-lg);
+
+  & h1 {
+    font-size: 1.8rem;
+    margin: 0;
+  }
+}
+
+.loading-state {
+  text-align: center;
+  padding: var(--spacing-xl);
+  color: var(--color-text-light);
+}
+
+.question-form {
+  background: var(--color-white);
+  padding: var(--spacing-xl);
+  border-radius: var(--border-radius);
+  box-shadow: 0 4px 8px var(--color-shadow);
+
+  & textarea {
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: 2px solid var(--color-border);
+    border-radius: var(--border-radius);
+    font-size: 1rem;
+    font-family: inherit;
+    resize: vertical;
+    transition: border-color 0.3s ease;
+
+    &:focus {
+      outline: none;
+      border-color: var(--color-primary);
+    }
+  }
+}
+
+.options-fieldset {
+  border: 2px solid var(--color-border);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+
+  & legend {
+    padding: 0 var(--spacing-xs);
+    font-weight: 600;
+    color: var(--color-text);
+    font-size: 0.95rem;
+  }
+}
+
+.option-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-xs);
+  border-radius: var(--border-radius);
+  transition: background 0.2s ease;
+
+  &.selected {
+    background: #e8f8f0;
+
+    & .option-letter-badge {
+      background: var(--color-correct);
+    }
+  }
+}
+
+.option-radio {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.option-letter-badge {
+  min-width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary);
+  color: var(--color-white);
+  border-radius: 50%;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.option-input {
+  flex: 1;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--color-border);
+}
