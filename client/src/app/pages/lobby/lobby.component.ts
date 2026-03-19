@@ -1,12 +1,13 @@
 import { Component, ChangeDetectionStrategy, inject, OnInit, effect } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
-import { GameStateService } from '../../services/game-state.service';
+
+import { GameStateService } from '../../shared/services/game-state.service';
 
 @Component({
   selector: 'app-lobby',
   imports: [],
-  templateUrl: './lobby.html',
-  styleUrl: './lobby.css',
+  templateUrl: './lobby.component.html',
+  styleUrl: './lobby.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LobbyComponent implements OnInit {

@@ -1,13 +1,13 @@
 import { Component, signal, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
-import { GameStateService } from '../../services/game-state.service';
+import { GameStateService } from '../../shared/services/game-state.service';
 
 @Component({
   selector: 'app-home',
   imports: [ReactiveFormsModule],
-  templateUrl: './home.html',
-  styleUrl: './home.css',
+  templateUrl: './home.component.html',
+  styleUrl: './home.component.css',
 })
 export class HomeComponent {
   private readonly router: Router = inject(Router);

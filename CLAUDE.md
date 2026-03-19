@@ -44,17 +44,17 @@ cd server && npm run build
 
 ## Architecture
 
-**Entry Point**: `client/src/main.ts` bootstraps the application with `App` component from `client/src/app/app.ts`
+**Entry Point**: `client/src/main.ts` bootstraps the application with `App` component from `client/src/app/app.component.ts`
 
 **Configuration**: `client/src/app/app.config.ts` provides:
 - Zoneless change detection
 - Browser global error listeners
 - Router configuration
 
-**Routing**: Defined in `client/src/app/app.routes.ts` (currently empty, ready for route definitions)
+**Routing**: Defined in `client/src/app/app.routes.ts`
 
 **Component Structure**:
-- Components use separate files: `component.ts`, `component.html`, `component.css`
+- Components use separate files: `name.component.ts`, `name.component.html`, `name.component.css`
 - All components are standalone with explicit imports
 - Use signals (from `@angular/core`) for reactive state
 
@@ -107,6 +107,23 @@ Code formatting rules in package.json:
 - Design services around a single responsibility
 - Use the `providedIn: 'root'` option for singleton services
 - Use the `inject()` function instead of constructor injection
+
+## Folder Structure and Naming Conventions
+
+**Folders are organized by functionality**, not by type, as much as possible. Instead of creating type-based folders like `/services`, `/guards`, or `/pipes`, co-locate files with the feature they belong to. 
+If this is not possible because files have a generic purpose and don't fit well under existing functionality based folders, add the files under the generic 'shared' folder. 
+
+Examples:
+- Admin auth service and guard live in `pages/admin/` alongside the admin components
+- Game services (api, socket, game-state) live in `shared/services/` at the app level since they are shared across multiple game-related pages
+
+**Filenames must indicate the file type** using a `.type.ts` suffix pattern:
+- Components: `home.component.ts` / `home.component.html` / `home.component.css`
+- Services: `game-state.service.ts`
+- Guards: `admin-auth.guard.ts`
+- Routes: `admin.routes.ts`
+- Models: `player.model.ts`
+- Config: `app.config.ts`
 
 ## CSS Conventions
 

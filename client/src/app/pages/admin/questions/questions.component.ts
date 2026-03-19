@@ -1,12 +1,12 @@
 import { Component, ChangeDetectionStrategy, inject, signal, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
-import { AdminApiService, AdminQuestion } from '../../../services/admin-api.service';
+import { AdminApiService, AdminQuestion } from '../admin-api.service';
 
 @Component({
   selector: 'app-questions',
   imports: [],
-  templateUrl: './questions.html',
-  styleUrl: './questions.css',
+  templateUrl: './questions.component.html',
+  styleUrl: './questions.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class QuestionsComponent implements OnInit {

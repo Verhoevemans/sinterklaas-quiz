@@ -7,13 +7,13 @@ import {
   OnInit,
   effect,
 } from '@angular/core';
-import { GameStateService } from '../../../services/game-state.service';
+import { GameStateService } from '../../../shared/services/game-state.service';
 
 @Component({
   selector: 'app-player-view',
   imports: [],
-  templateUrl: './player-view.html',
-  styleUrl: './player-view.css',
+  templateUrl: './player-view.component.html',
+  styleUrl: './player-view.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PlayerViewComponent implements OnInit {

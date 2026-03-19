@@ -1,11 +1,12 @@
 import { Component, ChangeDetectionStrategy, inject, input } from '@angular/core';
-import { GameStateService } from '../../../services/game-state.service';
+
+import { GameStateService } from '../../../shared/services/game-state.service';
 
 @Component({
   selector: 'app-host-view',
   imports: [],
-  templateUrl: './host-view.html',
-  styleUrl: './host-view.css',
+  templateUrl: './host-view.component.html',
+  styleUrl: './host-view.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HostViewComponent {

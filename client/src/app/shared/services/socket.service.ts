@@ -1,5 +1,6 @@
 import { Injectable, signal, inject, DestroyRef } from '@angular/core';
 import { io, Socket } from 'socket.io-client';
+
 import { Player, Question, PlayerAnswer } from '../models';
 
 const SOCKET_URL: string = 'http://localhost:3000';

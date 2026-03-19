@@ -9,15 +9,15 @@ import {
   effect,
 } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
-import { GameStateService } from '../../services/game-state.service';
-import { HostViewComponent } from './host-view/host-view';
-import { PlayerViewComponent } from './player-view/player-view';
+import { GameStateService } from '../../shared/services/game-state.service';
+import { HostViewComponent } from './host-view/host-view.component';
+import { PlayerViewComponent } from './player-view/player-view.component';
 
 @Component({
   selector: 'app-game',
   imports: [HostViewComponent, PlayerViewComponent],
-  templateUrl: './game.html',
-  styleUrl: './game.css',
+  templateUrl: './game.component.html',
+  styleUrl: './game.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GameComponent implements OnInit, OnDestroy {

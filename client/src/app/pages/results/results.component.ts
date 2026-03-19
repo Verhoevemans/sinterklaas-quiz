@@ -1,7 +1,8 @@
 import { Component, ChangeDetectionStrategy, inject, OnInit, computed, Signal } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
-import { GameStateService } from '../../services/game-state.service';
-import { Player } from '../../models';
+
+import { GameStateService } from '../../shared/services/game-state.service';
+import { Player } from '../../shared/models';
 
 interface PlayerStats {
   totalQuestions: number;
@@ -12,8 +13,8 @@ interface PlayerStats {
 @Component({
   selector: 'app-results',
   imports: [],
-  templateUrl: './results.html',
-  styleUrl: './results.css',
+  templateUrl: './results.component.html',
+  styleUrl: './results.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ResultsComponent implements OnInit {

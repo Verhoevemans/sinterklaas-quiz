@@ -1,12 +1,12 @@
 import { Component, ChangeDetectionStrategy, inject, Signal } from '@angular/core';
 import { Router, RouterOutlet } from '@angular/router';
-import { AdminAuthService } from '../../services/admin-auth.service';
+import { AdminAuthService } from './admin-auth.service';
 
 @Component({
   selector: 'app-admin',
   imports: [RouterOutlet],
-  templateUrl: './admin.html',
-  styleUrl: './admin.css',
+  templateUrl: './admin.component.html',
+  styleUrl: './admin.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AdminComponent {

@@ -9,13 +9,13 @@ import {
 } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { FormGroup, FormControl, Validators, ReactiveFormsModule } from '@angular/forms';
-import { AdminApiService, QuestionFormData } from '../../../services/admin-api.service';
+import { AdminApiService, QuestionFormData } from '../admin-api.service';
 
 @Component({
   selector: 'app-question-form',
   imports: [ReactiveFormsModule],
-  templateUrl: './question-form.html',
-  styleUrl: './question-form.css',
+  templateUrl: './question-form.component.html',
+  styleUrl: './question-form.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class QuestionFormComponent implements OnInit {
