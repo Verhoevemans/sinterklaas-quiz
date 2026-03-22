@@ -9,7 +9,8 @@ import {
 } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { FormGroup, FormControl, Validators, ReactiveFormsModule } from '@angular/forms';
-import { AdminApiService, QuestionFormData } from '../admin-api.service';
+import { AdminService } from '../admin.service';
+import { QuestionFormData } from './question-form.models';
 
 @Component({
   selector: 'app-question-form',
@@ -19,7 +20,7 @@ import { AdminApiService, QuestionFormData } from '../admin-api.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class QuestionFormComponent implements OnInit {
-  private readonly adminApi: AdminApiService = inject(AdminApiService);
+  private readonly adminService: AdminService = inject(AdminService);
   private readonly router: Router = inject(Router);
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
 
@@ -52,7 +53,7 @@ export class QuestionFormComponent implements OnInit {
   private async loadQuestion(id: string): Promise<void> {
     this.loading.set(true);
     try {
-      const q = await this.adminApi.getQuestion(id);
+      const q = await this.adminService.getQuestion(id);
       this.form.patchValue({
         text: q.text,
         option0: q.options[0] ?? '',
@@ -88,9 +89,9 @@ export class QuestionFormComponent implements OnInit {
     try {
       const id: string | null = this.editId();
       if (id) {
-        await this.adminApi.updateQuestion(id, data);
+        await this.adminService.updateQuestion(id, data);
       } else {
-        await this.adminApi.createQuestion(data);
+        await this.adminService.createQuestion(data);
       }
       this.router.navigate(['/admin/questions']);
     } catch (e) {

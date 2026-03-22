@@ -184,8 +184,6 @@ export class GameStateService {
           correctAnswerIndex: -1, // Not revealed yet
           explanation: '',
           isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date(),
         });
         this.questionStartTime.set(data.startTime);
         this.hasSubmitted.set(false);
@@ -243,8 +241,6 @@ export class GameStateService {
           correctAnswerIndex: -1,
           explanation: '',
           isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date(),
         });
         this.questionStartTime.set(data.startTime);
         this.hasSubmitted.set(false);

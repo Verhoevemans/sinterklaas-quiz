@@ -1,6 +1,7 @@
 import { Component, ChangeDetectionStrategy, inject, signal, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
-import { AdminApiService, AdminQuestion } from '../admin-api.service';
+import { Question } from '../../../shared/models';
+import { AdminService } from '../admin.service';
 
 @Component({
   selector: 'app-questions',
@@ -10,10 +11,10 @@ import { AdminApiService, AdminQuestion } from '../admin-api.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class QuestionsComponent implements OnInit {
-  private readonly adminApi: AdminApiService = inject(AdminApiService);
+  private readonly adminService: AdminService = inject(AdminService);
   private readonly router: Router = inject(Router);
 
-  public readonly questions = signal<AdminQuestion[]>([]);
+  public readonly questions = signal<Question[]>([]);
   public readonly currentPage = signal<number>(1);
   public readonly totalPages = signal<number>(1);
   public readonly total = signal<number>(0);
@@ -29,7 +30,7 @@ export class QuestionsComponent implements OnInit {
     this.loading.set(true);
     this.error.set(null);
     try {
-      const result = await this.adminApi.listQuestions(this.currentPage(), this.includeDeleted());
+      const result = await this.adminService.listQuestions(this.currentPage(), this.includeDeleted());
       this.questions.set(result.questions);
       this.totalPages.set(result.pagination.totalPages);
       this.total.set(result.pagination.total);
@@ -62,7 +63,7 @@ export class QuestionsComponent implements OnInit {
   public async deleteQuestion(id: string): Promise<void> {
     if (!confirm('Weet je zeker dat je deze vraag wilt verwijderen?')) return;
     try {
-      await this.adminApi.deleteQuestion(id);
+      await this.adminService.deleteQuestion(id);
       await this.loadQuestions();
     } catch (e) {
       this.error.set(e instanceof Error ? e.message : 'Verwijderen mislukt');
@@ -71,7 +72,7 @@ export class QuestionsComponent implements OnInit {
 
   public async restoreQuestion(id: string): Promise<void> {
     try {
-      await this.adminApi.restoreQuestion(id);
+      await this.adminService.restoreQuestion(id);
       await this.loadQuestions();
     } catch (e) {
       this.error.set(e instanceof Error ? e.message : 'Herstellen mislukt');

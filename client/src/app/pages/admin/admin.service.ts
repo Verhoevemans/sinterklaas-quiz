@@ -1,44 +1,16 @@
 import { Injectable, inject } from '@angular/core';
+
+import { Question } from '../../shared/models';
 import { AdminAuthService } from './admin-auth.service';
+import { QuestionListResponse } from './questions/questions.models';
+import { QuestionFormData } from './question-form/question-form.models';
 
 const ADMIN_API_URL: string = 'http://localhost:3000/api/admin/questions';
-
-export interface AdminQuestion {
-  _id: string;
-  text: string;
-  options: string[];
-  correctAnswerIndex: number;
-  explanation: string;
-  questionType: string;
-  imageUrl?: string;
-  isActive: boolean;
-  isDeleted: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface QuestionListResponse {
-  questions: AdminQuestion[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}
-
-export interface QuestionFormData {
-  text: string;
-  options: string[];
-  correctAnswerIndex: number;
-  explanation: string;
-  isActive: boolean;
-}
 
 @Injectable({
   providedIn: 'root',
 })
-export class AdminApiService {
+export class AdminService {
   private readonly authService: AdminAuthService = inject(AdminAuthService);
 
   private get headers(): Record<string, string> {
@@ -64,7 +36,7 @@ export class AdminApiService {
     return response.json();
   }
 
-  public async getQuestion(id: string): Promise<AdminQuestion> {
+  public async getQuestion(id: string): Promise<Question> {
     const response: Response = await fetch(`${ADMIN_API_URL}/${id}`, { headers: this.headers });
     if (!response.ok) {
       const error = await response.json();
@@ -73,7 +45,7 @@ export class AdminApiService {
     return response.json();
   }
 
-  public async createQuestion(data: QuestionFormData): Promise<AdminQuestion> {
+  public async createQuestion(data: QuestionFormData): Promise<Question> {
     const response: Response = await fetch(ADMIN_API_URL, {
       method: 'POST',
       headers: this.headers,
@@ -86,7 +58,7 @@ export class AdminApiService {
     return response.json();
   }
 
-  public async updateQuestion(id: string, data: QuestionFormData): Promise<AdminQuestion> {
+  public async updateQuestion(id: string, data: QuestionFormData): Promise<Question> {
     const response: Response = await fetch(`${ADMIN_API_URL}/${id}`, {
       method: 'PUT',
       headers: this.headers,

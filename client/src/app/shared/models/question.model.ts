@@ -9,6 +9,7 @@ export interface Question {
   questionType: QuestionType;
   imageUrl?: string;
   isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  isDeleted?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }

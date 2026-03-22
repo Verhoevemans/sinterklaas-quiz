@@ -59,7 +59,15 @@ const QuestionSchema: Schema = new Schema(
   },
   {
     timestamps: true,
-    toJSON: { virtuals: true },
+    toJSON: {
+      virtuals: true,
+      transform: (_doc: unknown, ret: Record<string, unknown>) => {
+        ret['id'] = String(ret['_id']);
+        delete ret['_id'];
+        delete ret['__v'];
+        return ret;
+      },
+    },
   }
 );
 

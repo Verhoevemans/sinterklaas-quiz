@@ -107,7 +107,7 @@ export class GameSocketHandler {
 
       this.io.to(gameCode).emit('game-started', {
         question: {
-          id: result.question._id,
+          id: result.question.id,
           text: result.question.text,
           options: result.question.options,
           questionType: result.question.questionType,
@@ -202,7 +202,7 @@ export class GameSocketHandler {
               return totalTimeTaken(a) - totalTimeTaken(b);
             }),
           questions: result.questions!.map((q: IQuestion) => ({
-            id: q._id,
+            id: q.id,
             text: q.text,
             options: q.options,
             correctAnswerIndex: q.correctAnswerIndex,
@@ -214,7 +214,7 @@ export class GameSocketHandler {
       } else {
         this.io.to(gameCode).emit('question-changed', {
           question: {
-            id: result.question!._id,
+            id: result.question!.id,
             text: result.question!.text,
             options: result.question!.options,
             questionType: result.question!.questionType,
@@ -270,7 +270,7 @@ export class GameSocketHandler {
             return totalTimeTaken(a) - totalTimeTaken(b);
           }),
         questions: result.questions.map((q: IQuestion) => ({
-          id: q._id,
+          id: q.id,
           text: q.text,
           options: q.options,
           correctAnswerIndex: q.correctAnswerIndex,

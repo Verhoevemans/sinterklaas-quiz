@@ -20,7 +20,7 @@
     <p class="questions-meta">{{ total() }} vragen</p>
 
     <div class="questions-list">
-      @for (q of questions(); track q._id) {
+      @for (q of questions(); track q.id) {
         <div class="question-card" [class.deleted]="q.isDeleted">
           <div class="question-body">
             <p class="question-text">{{ q.text }}</p>
@@ -40,10 +40,10 @@
           </div>
           <div class="question-actions">
             @if (!q.isDeleted) {
-              <button class="secondary-button" (click)="navigateToEdit(q._id)">Bewerken</button>
-              <button class="danger-button" (click)="deleteQuestion(q._id)">Verwijderen</button>
+              <button class="secondary-button" (click)="navigateToEdit(q.id)">Bewerken</button>
+              <button class="danger-button" (click)="deleteQuestion(q.id)">Verwijderen</button>
             } @else {
-              <button class="secondary-button" (click)="restoreQuestion(q._id)">Herstellen</button>
+              <button class="secondary-button" (click)="restoreQuestion(q.id)">Herstellen</button>
             }
           </div>
         </div>

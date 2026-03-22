@@ -202,7 +202,7 @@ export class GameController {
       }
 
       res.json({
-        id: question._id,
+        id: question.id,
         text: question.text,
         options: question.options,
         questionType: question.questionType,
